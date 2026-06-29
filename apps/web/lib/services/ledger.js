@@ -66,12 +66,10 @@ async function createLoadFromInvoice(scope, f) {
 const stripZeros = (s) => String(s || "").replace(/^0+/, "");
 const rupeeStr = (n) => "₹" + Math.round(n || 0).toLocaleString("en-IN");
 
-async function saveFile(scope, buffer, filename) {
-  const dir = path.join(UPLOAD_DIR, scope.transportId);
-  await fs.mkdir(dir, { recursive: true });
-  const safe = `${Date.now()}-${String(filename || "ledger.pdf").replace(/[^\w.\-]/g, "_")}`;
-  await fs.writeFile(path.join(dir, safe), buffer);
-  return path.join(scope.transportId, safe);
+// PDFs are parsed in memory and not persisted (keeps the app filesystem-free for Vercel).
+// Kept as a no-op so callers/Upload.path stay unchanged.
+async function saveFile() {
+  return "";
 }
 
 // Club loads by Shipment No and (re)compute the diesel given to the driver.

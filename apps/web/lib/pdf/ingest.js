@@ -85,14 +85,11 @@ export async function reconcileRtkm({ transportId, ownerId, source, rows }) {
   } catch { /* best-effort */ }
 }
 
-// Save a PDF buffer, extract text, parse it, store an Upload doc. Shared by file upload + Gmail import.
+// Parse a PDF buffer (extract text) and store an Upload doc. Shared by file upload + Gmail import.
+// The PDF itself is NOT persisted — we parse it in memory and keep only the extracted data, so
+// the app runs on read-only/serverless filesystems (Vercel) with no blob storage.
 // Returns { upload, parsed, textPreview }.
 export async function storeAndParse({ scope, kind, buffer, filename, source = "upload" }) {
-  const dir = path.join(UPLOAD_DIR, scope.transportId);
-  await fs.mkdir(dir, { recursive: true });
-  const safeName = `${Date.now()}-${String(filename || "file.pdf").replace(/[^\w.\-]/g, "_")}`;
-  await fs.writeFile(path.join(dir, safeName), buffer);
-
   const text = await extractText(buffer);
   const parsed = kind === "invoice" ? parseInvoice(text) : parseShortage(text);
 
@@ -112,8 +109,8 @@ export async function storeAndParse({ scope, kind, buffer, filename, source = "u
     kind,
     company: parsed.company || "",
     hash,
-    filename: filename || safeName,
-    path: path.join(scope.transportId, safeName),
+    filename: filename || "upload.pdf",
+    path: "", // PDF not stored (parsed in memory)
     parsedJson: parsed.fields,
     status: parsed.confidence === "high" ? "parsed" : "needs_review",
     source,
