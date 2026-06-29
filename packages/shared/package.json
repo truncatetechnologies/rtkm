@@ -1,0 +1,10 @@
+{
+  "name": "@rtkm/shared",
+  "version": "1.0.0",
+  "description": "Shared constants, calculation and validation logic for RTKM web + mobile",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "zod": "^3.23.8"
+  }
+}

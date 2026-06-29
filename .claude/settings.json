@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:rtkm-44911.web.app)",
+      "Bash(curl -s https://rtkm-44911.web.app/ -o rtkm_index.html)"
+    ]
+  }
+}

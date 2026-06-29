@@ -1,0 +1,353 @@
+[
+    { 
+        "CMS Code" : "50789NA789", 
+        "RO Name" : "Power Petroleum Center", 
+        "RTKM" : 404.0
+    },
+    { 
+        "CMS Code" : "51010NA010", 
+        "RO Name" : "Shama Filling Station", 
+        "RTKM" : 200.0
+    },
+    { 
+        "CMS Code" : "50822NA822", 
+        "RO Name" : "Vikesh Singh Manish Kumar", 
+        "RTKM" : 156.0
+    },
+    { 
+        "CMS Code" : "50110NA110", 
+        "RO Name" : "Adeeba Filling Station", 
+        "RTKM" : 196.0
+    },
+    { 
+        "CMS Code" : "51073NA073", 
+        "RO Name" : "Ajit & Sons", 
+        "RTKM" : 80.0
+    },
+    { 
+        "CMS Code" : "51305NA305", 
+        "RO Name" : "Amar Filling Station", 
+        "RTKM" : 204.0
+    },
+    { 
+        "CMS Code" : "50272NA272", 
+        "RO Name" : "Asaa Ram Filling Station", 
+        "RTKM" : 236.0
+    },
+    { 
+        "CMS Code" : "50536NA536", 
+        "RO Name" : "Ashwath Filling Station", 
+        "RTKM" : 324.0
+    },
+    { 
+        "CMS Code" : "50659NA659", 
+        "RO Name" : "Baba Shobhnath Enterprises", 
+        "RTKM" : 238.0
+    },
+    { 
+        "CMS Code" : "50174NA174", 
+        "RO Name" : "Crystal Oils", 
+        "RTKM" : 160.0
+    },
+    { 
+        "CMS Code" : "51074NA074", 
+        "RO Name" : "Eastern Filling Station", 
+        "RTKM" : 126.0
+    },
+    { 
+        "CMS Code" : "51478NA478", 
+        "RO Name" : "Gopinath Filling Station", 
+        "RTKM" : 246.0
+    },
+    { 
+        "CMS Code" : "51058NA058", 
+        "RO Name" : "Himanshu Filling Station", 
+        "RTKM" : 244.0
+    },
+    { 
+        "CMS Code" : "50162NA162", 
+        "RO Name" : "Jai Bajarang Filling Station", 
+        "RTKM" : 130.0
+    },
+    { 
+        "CMS Code" : "50448NA448", 
+        "RO Name" : "Jai Maa Bhagwati Filling Station", 
+        "RTKM" : 224.0
+    },
+    { 
+        "CMS Code" : "51172NA172", 
+        "RO Name" : "Jai Mahadev Filling Station", 
+        "RTKM" : 170.0
+    },
+    { 
+        "CMS Code" : "51077NA077", 
+        "RO Name" : "Janta Filling Station", 
+        "RTKM" : 148.0
+    },
+    { 
+        "CMS Code" : "50391NA391", 
+        "RO Name" : "Kamla Devi Filling Station", 
+        "RTKM" : 112.0
+    },
+    { 
+        "CMS Code" : "51484NA484", 
+        "RO Name" : "Kishore Auto sales", 
+        "RTKM" : 328.0
+    },
+    { 
+        "CMS Code" : "50245NA245", 
+        "RO Name" : "Krishna Petroleum", 
+        "RTKM" : 396.0
+    },
+    { 
+        "CMS Code" : "51149NA149", 
+        "RO Name" : "Kritika Filling Station", 
+        "RTKM" : 392.0
+    },
+    { 
+        "CMS Code" : "50477NA477", 
+        "RO Name" : "Lahasi Devi Filling Station", 
+        "RTKM" : 258.0
+    },
+    { 
+        "CMS Code" : "50611NA611", 
+        "RO Name" : "Maa Barahi Automobiles", 
+        "RTKM" : 284.0
+    },
+    { 
+        "CMS Code" : "52123NA123", 
+        "RO Name" : "Maa Brahmani Filling Station", 
+        "RTKM" : 318.0
+    },
+    { 
+        "CMS Code" : "50981NA981", 
+        "RO Name" : "Maa Shiv Kumari Raghunath", 
+        "RTKM" : 160.0
+    },
+    { 
+        "CMS Code" : "50711NA711", 
+        "RO Name" : "Mahadeva Filling Station", 
+        "RTKM" : 336.0
+    },
+    { 
+        "CMS Code" : "51294NA294", 
+        "RO Name" : "Maharshi Nauva Baba Filling Station", 
+        "RTKM" : 272.0
+    },
+    { 
+        "CMS Code" : "50231NA231", 
+        "RO Name" : "Mastana Filling Station", 
+        "RTKM" : 18.0
+    },
+    { 
+        "CMS Code" : "50154NA154", 
+        "RO Name" : "Milan Filling Station", 
+        "RTKM" : 180.0
+    },
+    { 
+        "CMS Code" : "50241NA241", 
+        "RO Name" : "Narayan Filling Station", 
+        "RTKM" : 280.0
+    },
+    { 
+        "CMS Code" : "51301NA301", 
+        "RO Name" : "NeelKanth Energy Point", 
+        "RTKM" : 230.0
+    },
+    { 
+        "CMS Code" : "50397NA397", 
+        "RO Name" : "Neelkanth Filling Centre", 
+        "RTKM" : 216.0
+    },
+    { 
+        "CMS Code" : "51113NA113", 
+        "RO Name" : "Om Filling Station", 
+        "RTKM" : 122.0
+    },
+    { 
+        "CMS Code" : "50179NA179", 
+        "RO Name" : "Oriental Filling Station", 
+        "RTKM" : 40.0
+    },
+    { 
+        "CMS Code" : "50518NA518", 
+        "RO Name" : "Pratibha Service Station", 
+        "RTKM" : 276.0
+    },
+    { 
+        "CMS Code" : "50341NA341", 
+        "RO Name" : "Rajan Automobiles", 
+        "RTKM" : 228.0
+    },
+    { 
+        "CMS Code" : "51110NA110", 
+        "RO Name" : "Ralhi Filling Station", 
+        "RTKM" : 162.0
+    },
+    { 
+        "CMS Code" : "51295NA295", 
+        "RO Name" : "RAMADHAR SINGH AND SONS", 
+        "RTKM" : 82.0
+    },
+    { 
+        "CMS Code" : "50095NA095", 
+        "RO Name" : "Roshan Filling Station", 
+        "RTKM" : 230.0
+    },
+    { 
+        "CMS Code" : "51801NA801", 
+        "RO Name" : "RPM Petro Station", 
+        "RTKM" : 258.0
+    },
+    { 
+        "CMS Code" : "50699NA699", 
+        "RO Name" : "S J Filling Station", 
+        "RTKM" : 284.0
+    },
+    { 
+        "CMS Code" : "51075NA075", 
+        "RO Name" : "Sadguru Kripa Filling Centre", 
+        "RTKM" : 164.0
+    },
+    { 
+        "CMS Code" : "51182NA182", 
+        "RO Name" : "Satish Kumar Chaudhary", 
+        "RTKM" : 292.0
+    },
+    { 
+        "CMS Code" : "50279NA279", 
+        "RO Name" : "Shakti Fuel Station", 
+        "RTKM" : 314.0
+    },
+    { 
+        "CMS Code" : "50488NA488", 
+        "RO Name" : "Shalal & Bros. Auto Sales", 
+        "RTKM" : 320.0
+    },
+    { 
+        "CMS Code" : "50817NA817", 
+        "RO Name" : "Shashwat Filling Center", 
+        "RTKM" : 240.0
+    },
+    { 
+        "CMS Code" : "50235NA235", 
+        "RO Name" : "Shiv Automobiles", 
+        "RTKM" : 204.0
+    },
+    { 
+        "CMS Code" : "51078NA078", 
+        "RO Name" : "Shiv Shakti Enterprises", 
+        "RTKM" : 382.0
+    },
+    { 
+        "CMS Code" : "51094NA094", 
+        "RO Name" : "Shri Bajarang Filling Station", 
+        "RTKM" : 110.0
+    },
+    { 
+        "CMS Code" : "50988NA988", 
+        "RO Name" : "Shri Mata Vaishno Devi Fuel Filling", 
+        "RTKM" : 316.0
+    },
+    { 
+        "CMS Code" : "50339NA339", 
+        "RO Name" : "Shukla Auto Sales", 
+        "RTKM" : 184.0
+    },
+    { 
+        "CMS Code" : "50316NA316", 
+        "RO Name" : "Singh & Sons Automobiles", 
+        "RTKM" : 224.0
+    },
+    { 
+        "CMS Code" : "50248NA248", 
+        "RO Name" : "Soni Filling Station", 
+        "RTKM" : 176.0
+    },
+    { 
+        "CMS Code" : "50816NA816", 
+        "RO Name" : "Soni Fuel Pump", 
+        "RTKM" : 190.0
+    },
+    { 
+        "CMS Code" : "50221NA221", 
+        "RO Name" : "Sri Bajrang Filling Station", 
+        "RTKM" : 76.0
+    },
+    { 
+        "CMS Code" : "50223NA223", 
+        "RO Name" : "Sri Laxmi Filling Station", 
+        "RTKM" : 300.0
+    },
+    { 
+        "CMS Code" : "50280NA280", 
+        "RO Name" : "Subedar Singh Enterprises", 
+        "RTKM" : 220.0
+    },
+    { 
+        "CMS Code" : "50734NA734", 
+        "RO Name" : "Surya Fuels", 
+        "RTKM" : 244.0
+    },
+    { 
+        "CMS Code" : "50531NA531", 
+        "RO Name" : "Susheela Automobiles", 
+        "RTKM" : 80.0
+    },
+    { 
+        "CMS Code" : "50587NA587", 
+        "RO Name" : "Sushila Filling Station", 
+        "RTKM" : 170.0
+    },
+    { 
+        "CMS Code" : "51376NA376", 
+        "RO Name" : "T S Feeling Station", 
+        "RTKM" : 288.0
+    },
+    { 
+        "CMS Code" : "50850NA850", 
+        "RO Name" : "Tara Service Station", 
+        "RTKM" : 112.0
+    },
+    { 
+        "CMS Code" : "50645NA645", 
+        "RO Name" : "Tathagat Filling Centre", 
+        "RTKM" : 224.0
+    },
+    { 
+        "CMS Code" : "50463NA463", 
+        "RO Name" : "Tulsi Automobile", 
+        "RTKM" : 282.0
+    },
+    { 
+        "CMS Code" : "50383NA383", 
+        "RO Name" : "Tulsi Filling Station", 
+        "RTKM" : 266.0
+    },
+    { 
+        "CMS Code" : "51154NA154", 
+        "RO Name" : "Tulsi Petroleum", 
+        "RTKM" : 238.0
+    },
+    { 
+        "CMS Code" : "51846NA846", 
+        "RO Name" : "Usha Filling Station", 
+        "RTKM" : 64.0
+    },
+    { 
+        "CMS Code" : "50870NA870", 
+        "RO Name" : "Utkarsh and Harsh Filling Station", 
+        "RTKM" : 124.0
+    },
+    { 
+        "CMS Code" : "51079NA079", 
+        "RO Name" : "Vatsa Filling Station", 
+        "RTKM" : 432.0
+    },
+    { 
+        "CMS Code" : "50220NA220", 
+        "RO Name" : "Vikas Filling Station", 
+        "RTKM" : 156.0
+    }
+    
+]
