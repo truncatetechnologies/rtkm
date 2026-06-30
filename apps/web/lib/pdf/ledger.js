@@ -29,7 +29,10 @@ export function parseFreightStatement(text) {
   //   = salesInv(10) date deliveryDoc(9) shipment(8) supplyLoc(L+3) cmsCode(5+LL+3) product vehicle LR
   // then a separate value block: sale deliv shortage rtkm rate amount.
   // The cmsCode here matches the master Pump cmsCode (e.g. 50383NA383 → "Tulsi Filling Station").
-  const concat = /(\d{10})(\d{2}\.\d{2}\.\d{4})(\d{9})(\d{8})([A-Z]\d{3})(\d{5}[A-Z]{2}\d{3})(\d+)([A-Z]{2}\d{1,2}[A-Z]{1,3}\d{3,4})[\s\S]*?(\d+\.\d{3})\s+(\d+\.\d{3})\s+(\d+\.\d{3})\s+(\d+)\s+(\d+\.\d{2,6})\s+([\d,]+\.\d{2})/g;
+  // Supply Location is a 4-char code that may start with a LETTER (H305) or be ALL DIGITS (4124),
+  // hence [A-Z0-9] for its first char — an [A-Z]-only match silently dropped digit-coded statements,
+  // losing their freight rate/amount (they parsed as 0 rows → ₹0 / "—").
+  const concat = /(\d{10})(\d{2}\.\d{2}\.\d{4})(\d{9})(\d{8})([A-Z0-9]\d{3})(\d{5}[A-Z]{2}\d{3})(\d+)([A-Z]{2}\d{1,2}[A-Z]{1,3}\d{3,4})[\s\S]*?(\d+\.\d{3})\s+(\d+\.\d{3})\s+(\d+\.\d{3})\s+(\d+)\s+(\d+\.\d{2,6})\s+([\d,]+\.\d{2})/g;
   while ((m = concat.exec(flat))) {
     rows.push({
       salesInvNo: m[1], invoiceDate: m[2], deliveryDoc: m[3], shipmentNo: m[4],

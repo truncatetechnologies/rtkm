@@ -81,6 +81,8 @@ export async function whoAmI() { return req("/api/auth/owner/me"); }
 // ---- Owner/manager fleet ----
 export async function getTransports() { return (await req("/api/transports")).transports; }
 export async function updateTransport(id, body) { return (await req(`/api/transports/${id}`, { method: "PUT", body })).transport; }
+// Owner "fresh start": wipe this transport's transactional data (optionally trucks + members too).
+export async function wipeTransport(id, includeFleet) { return req(`/api/transports/${id}/wipe`, { method: "POST", body: { includeFleet }, timeout: 120000 }); }
 export async function getMembers(transportId, role) {
   return (await req(`/api/members?transportId=${transportId}${role ? `&role=${role}` : ""}`)).members;
 }
@@ -124,7 +126,13 @@ export async function addLeave(payload) { return (await req("/api/leaves", { met
 export async function deleteLeave(id) { return req(`/api/leaves/${id}`, { method: "DELETE" }); }
 
 // ---- Ledger / reconciliation ----
-export async function getLedger(transportId, company) { return req(`/api/ledger?transportId=${transportId}${company && company !== "all" ? `&company=${company}` : ""}`); }
+export async function getLedger(transportId, company, from, to) {
+  let p = `/api/ledger?transportId=${transportId}`;
+  if (company && company !== "all") p += `&company=${company}`;
+  if (from) p += `&from=${encodeURIComponent(from)}`;
+  if (to) p += `&to=${encodeURIComponent(to)}`;
+  return req(p);
+}
 export async function uploadLedger(asset, transportId, force) { return uploadPdf("/api/ledger/upload", asset, transportId, force); }
 export async function getDriverShortage(transportId, period) { return req(`/api/reports/driver-shortage?transportId=${transportId}${period ? `&period=${period}` : ""}`); }
 export async function getProfitability(transportId) { return req(`/api/reports/profitability?transportId=${transportId}`); }

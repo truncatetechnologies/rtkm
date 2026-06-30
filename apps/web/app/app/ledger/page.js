@@ -4,7 +4,7 @@ import { useApp } from "@/lib/appContext";
 import { api } from "@/lib/clientApi";
 import { Card, Table, Td, Tr, Badge, Tile, Button, Modal, Field, Input, Select, IconButton, useConfirm, rupee } from "@/components/ui";
 import { Box, Typography } from "@mui/material";
-import { Wallet, IndianRupee, TrendingDown, Clock, Fuel, Truck, Plus, Trash2, ChevronDown, ChevronRight, AlertTriangle, CheckCircle2 } from "@/components/icons";
+import { Wallet, IndianRupee, TrendingDown, Clock, Fuel, Truck, Plus, Trash2, ChevronDown, ChevronRight, AlertTriangle, CheckCircle2, Toll } from "@/components/icons";
 
 const FILTERS = [["all", "All"], ["pending", "Pending"], ["settled", "Settled"]];
 const REASONS = [["breakdown", "Breakdown"], ["route_change", "Route change"], ["route_issue", "Route issue / detour"], ["other", "Other"]];
@@ -33,7 +33,10 @@ function groupByShipment(loads, extra) {
       freight: g.loads.reduce((s, l) => s + (l.freightAmount || 0), 0),
       maxRtkm: g.loads.reduce((m, l) => Math.max(m, l.rtkm || 0), 0),
       oil: g.loads.reduce((m, l) => Math.max(m, l.shipmentOilLiters || 0), 0),
+      oilCost: g.loads.reduce((s, l) => s + (l.oilCost || 0), 0), // ₹ of diesel given (lead-load only)
+      meal: g.loads.reduce((s, l) => s + (l.mealAllowance || 0), 0), // ₹ meal allowance (lead-load only)
       extraL: extraEntries.reduce((s, e) => s + (e.litres || 0), 0),
+      extraCost: extraEntries.reduce((s, e) => s + (e.cost || 0), 0),
     };
   });
 }
@@ -123,9 +126,11 @@ export default function Ledger() {
         ))}
       </Box>
 
-      <Table head={["Date", "Invoice", "Pump", "Vehicle / Driver", "Sale (L)", "Deliv (L)", "Short (L)", "RTKM", "Rate", "Freight ₹", "Net recd", "Status"]}>
+      <Table head={["Invoice date", "Invoice", "Pump", "Vehicle / Driver", "Sale (L)", "Deliv (L)", "Short (L)", "RTKM", "Rate", "Freight ₹", "Net recd", "Settled date", "Status"]}>
         {groups.map((g) => (
-          <ShipmentGroup key={g.shipmentNo || g.loads[0].id} g={g} onAddExtra={() => setExtraFor(g)} onRemoveExtra={removeExtra} />
+          <ShipmentGroup key={g.shipmentNo || g.loads[0].id} g={g}
+            fastag={(data.fastagByShipment || {})[g.shipmentNo || `solo:${g.loads[0].id}`]}
+            onAddExtra={() => setExtraFor(g)} onRemoveExtra={removeExtra} />
         ))}
         {data.loads.length === 0 && <Tr><Td sx={{ color: "text.disabled" }}>No deliveries yet. Upload a Statement of Freight to begin.</Td></Tr>}
       </Table>
@@ -186,35 +191,61 @@ function ReconciliationCard({ s }) {
   );
 }
 
-function ShipmentGroup({ g, onAddExtra, onRemoveExtra }) {
+function ShipmentGroup({ g, fastag, onAddExtra, onRemoveExtra }) {
   const multi = g.pumps > 1;
+  const [tollsOpen, setTollsOpen] = useState(false);
+  const fmtD = (x) => (x ? new Date(x).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit", timeZone: "UTC" }) : "—");
   return (
     <>
       <Tr sx={{ "&:hover": { bgcolor: "transparent" } }}>
-        <Td colSpan={12} sx={{ bgcolor: "rgba(79,70,229,0.06)", borderTop: "2px solid rgba(79,70,229,0.18)", py: 1 }}>
-          <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1.5, fontSize: 13 }}>
+        <Td colSpan={13} sx={{ bgcolor: "rgba(79,70,229,0.06)", borderTop: "2px solid rgba(79,70,229,0.18)", py: 1 }}>
+          {/* Row 1 — trip identity */}
+          <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1.25, fontSize: 13 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, fontWeight: 700, color: "#4338ca" }}>
               <Truck size={16} /> {g.shipmentNo ? `Shipment ${g.shipmentNo}` : "Single load (no shipment no)"}
             </Box>
             <Badge tone="indigo">{g.pumps} pump{multi ? "s" : ""}</Badge>
             <Box component="span" sx={{ color: "text.secondary" }}>{g.cargo.toLocaleString("en-IN")} L cargo</Box>
             <Box component="span" sx={{ color: "text.secondary" }}>· farthest <b>{g.maxRtkm}</b> km{multi ? " (RTKM used for oil)" : ""}</Box>
-            <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, fontWeight: 700, color: "#2563eb" }}>
-              <Fuel size={15} /> {g.oil} L diesel{g.extraL > 0 ? <Box component="span" sx={{ color: "#e11d48" }}>{` + ${g.extraL} L extra`}</Box> : null}
-            </Box>
-            <Box component="span" sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 1.5 }}>
-              <Box component="span" sx={{ fontWeight: 700 }}>{rupee(g.freight)}</Box>
+            <Box sx={{ ml: "auto" }}>
               <Button size="sm" variant="ghost" Icon={Plus} onClick={onAddExtra}
                 sx={{ borderRadius: 999, px: 1.25, py: 0.25, fontSize: 12, fontWeight: 600, color: "#2563eb", bgcolor: "rgba(37,99,235,0.08)", "&:hover": { bgcolor: "rgba(37,99,235,0.16)" } }}>
                 Extra oil
               </Button>
             </Box>
           </Box>
+
+          {/* Row 2 — spend calc (diesel + meal + tolls = spend) … freight on the right */}
+          <Box sx={{ mt: 0.75, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 0.75, fontSize: 13 }}>
+            <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, fontWeight: 600, color: "#2563eb" }}>
+              <Fuel size={15} /> {g.oil} L{g.extraL > 0 ? <Box component="span" sx={{ color: "#e11d48" }}>{` +${g.extraL}`}</Box> : null} · {rupee(g.oilCost + g.extraCost)}
+            </Box>
+            {g.meal > 0 && <><Plus size={11} color="#94a3b8" /><Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, fontWeight: 600, color: "#0ea5e9" }}><Wallet size={14} /> {rupee(g.meal)} meal</Box></>}
+            {fastag && fastag.toll > 0 && (
+              <>
+                <Plus size={11} color="#94a3b8" />
+                <Box component="button" onClick={() => setTollsOpen(true)}
+                  sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, border: "none", bgcolor: "transparent", cursor: "pointer", p: 0, font: "inherit", fontWeight: 600, color: "#7c3aed", "&:hover": { textDecoration: "underline" } }}
+                  title={`${fastag.count} toll pass${fastag.count === 1 ? "" : "es"} — click for breakup`}>
+                  <Toll size={15} /> {rupee(fastag.toll)} tolls
+                </Box>
+              </>
+            )}
+            <Box component="span" sx={{ color: "text.disabled", fontWeight: 700, mx: 0.25 }}>=</Box>
+            <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, fontWeight: 700, color: "#e11d48", bgcolor: "rgba(225,29,72,0.08)", borderRadius: 999, px: 1, py: 0.25 }}
+              title="Trip spend = diesel + extra oil + meal allowance + tolls">
+              <TrendingDown size={14} /> {rupee(g.oilCost + g.extraCost + g.meal + (fastag?.toll || 0))} spend
+            </Box>
+            <Box component="span" sx={{ ml: "auto", display: "inline-flex", alignItems: "center", gap: 0.75 }}>
+              <Box component="span" sx={{ fontSize: 11, color: "text.disabled", textTransform: "uppercase", letterSpacing: 0.4 }}>Freight</Box>
+              <Box component="span" sx={{ fontWeight: 700, color: "success.main" }}>{rupee(g.freight)}</Box>
+            </Box>
+          </Box>
         </Td>
       </Tr>
       {g.loads.map((l) => (
         <Tr key={l.id}>
-          <Td>{l.loadDate ? new Date(l.loadDate).toLocaleDateString("en-IN") : "—"}</Td>
+          <Td sx={{ whiteSpace: "nowrap" }}>{(l.invoiceDate || l.loadDate) ? new Date(l.invoiceDate || l.loadDate).toLocaleDateString("en-IN") : "—"}</Td>
           <Td sx={{ fontWeight: 500, color: "text.primary" }}>
             {l.invoiceNumber || "—"}
             {!l.hasInvoice && <Box sx={{ mt: 0.25 }}><Badge tone="yellow">invoice pending</Badge></Box>}
@@ -234,12 +265,13 @@ function ShipmentGroup({ g, onAddExtra, onRemoveExtra }) {
           <Td>{l.freightRate ? l.freightRate.toFixed(4) : "—"}</Td>
           <Td sx={{ fontWeight: 600 }}>{rupee(l.freightAmount)}</Td>
           <Td sx={{ fontWeight: 600, color: "success.main" }}>{l.netReceived ? rupee(l.netReceived) : "—"}</Td>
+          <Td sx={{ whiteSpace: "nowrap", color: l.paidDate ? "text.primary" : "text.disabled" }}>{l.paidDate ? new Date(l.paidDate).toLocaleDateString("en-IN") : "—"}</Td>
           <Td><Badge tone={l.settlementStatus === "settled" ? "green" : "yellow"}>{l.settlementStatus}</Badge></Td>
         </Tr>
       ))}
       {g.extraEntries.map((e) => (
         <Tr key={e.id} sx={{ "&:hover": { bgcolor: "transparent" } }}>
-          <Td colSpan={12} sx={{ bgcolor: "rgba(225,29,72,0.04)", py: 0.75 }}>
+          <Td colSpan={13} sx={{ bgcolor: "rgba(225,29,72,0.04)", py: 0.75 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, fontSize: 13, pl: 2 }}>
               <Fuel size={14} color="#e11d48" />
               <Box component="span" sx={{ fontWeight: 700, color: "#e11d48" }}>+{e.litres} L extra</Box>
@@ -253,6 +285,23 @@ function ShipmentGroup({ g, onAddExtra, onRemoveExtra }) {
           </Td>
         </Tr>
       ))}
+      {tollsOpen && fastag && (
+        <Modal title={`FASTag tolls — ${g.shipmentNo ? `Shipment ${g.shipmentNo}` : "this trip"}`} onClose={() => setTollsOpen(false)}>
+          <Typography sx={{ fontSize: 12.5, color: "text.secondary", mb: 1.5 }}>
+            {fastag.count} toll pass{fastag.count === 1 ? "" : "es"} on <b>{g.loads[0].truckReg || g.loads[0].vehicleNo || "this tanker"}</b>, matched to this trip by date · <b>{rupee(fastag.toll)}</b> total.
+          </Typography>
+          <Table head={["Date", "Plaza", "Amount"]}>
+            {(fastag.items || []).map((it, i) => (
+              <Tr key={i}>
+                <Td sx={{ whiteSpace: "nowrap" }}>{fmtD(it.date)}</Td>
+                <Td sx={{ color: "text.secondary" }}>{it.plaza}</Td>
+                <Td sx={{ fontWeight: 600 }}>{rupee(it.amount)}</Td>
+              </Tr>
+            ))}
+          </Table>
+          <Typography sx={{ mt: 1.5, fontSize: 11.5, color: "text.disabled" }}>Tolls have no invoice link in BlackBuck statements, so they're attributed to the trip that was running on each toll&apos;s date.</Typography>
+        </Modal>
+      )}
     </>
   );
 }

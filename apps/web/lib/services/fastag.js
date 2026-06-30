@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { dbConnect } from "@/lib/mongoose";
 import { FastagTxn, FastagWalletTxn, Truck, Upload, toWalletTxn } from "@/lib/models";
 import { detectFastagKind, parseFastagTag, parseBossWallet } from "@/lib/pdf/fastag";
@@ -135,13 +136,75 @@ export async function fastagReport({ scope, period }) {
   tolls.forEach((t) => { const p = (t.plaza || "—").split(" - ")[0]; plazas[p] = plazas[p] || { plaza: p, count: 0, amount: 0 }; plazas[p].count++; plazas[p].amount += t.amount; });
   const topPlazas = Object.values(plazas).sort((a, b) => b.amount - a.amount).slice(0, 8);
 
+  // Detailed toll transactions (for the current filter) — date, tanker, plaza, amount.
+  const tollRows = tolls.slice().sort((a, b) => (new Date(b.txnDate || 0)) - (new Date(a.txnDate || 0))).slice(0, 1000)
+    .map((t) => ({ id: String(t._id), date: t.txnDate, vehicleNo: t.vehicleNo || "", plaza: t.plaza || "", amount: t.amount }));
+
+  // Month-by-month summary (all-time, independent of the period filter).
+  const tId = new mongoose.Types.ObjectId(scope.transportId);
+  const [tollM, walletM] = await Promise.all([
+    FastagTxn.aggregate([{ $match: { transportId: tId, type: "toll" } }, { $group: { _id: "$period", toll: { $sum: "$amount" }, count: { $sum: 1 } } }]),
+    FastagWalletTxn.aggregate([{ $match: { transportId: tId } }, { $group: { _id: { period: "$period", category: "$category" }, v: { $sum: "$amount" } } }]),
+  ]);
+  const mMap = {};
+  const mRow = (p) => (mMap[p] = mMap[p] || { period: p, toll: 0, count: 0, topup: 0, outflow: 0 });
+  tollM.forEach((d) => { if (!d._id) return; const m = mRow(d._id); m.toll = d.toll; m.count = d.count; });
+  walletM.forEach((d) => {
+    const p = d._id.period; if (!p) return; const m = mRow(p); const c = d._id.category, v = d.v || 0;
+    if (c === "topup") m.topup += v;
+    else if (c === "recharge" || c === "orderpayment" || c === "servicefee") m.outflow += v;
+    else if (c === "recharge_reversal" || c === "refund") m.outflow -= v;
+  });
+  const byMonth = Object.values(mMap).map((m) => ({ period: m.period, toll: m.toll, count: m.count, topup: m.topup, nonToll: Math.max(0, m.outflow - m.toll), cost: Math.max(m.toll, m.outflow) }))
+    .sort((a, b) => (a.period < b.period ? 1 : -1));
+
   return {
-    months,
+    months, period: period || "",
     totals: { totalToll, topup, rechargeDebit, orderPayments, serviceFees, refund: rechargeReversal + refund, netOutflow, extras, fastagCost, tollCount: tolls.length, pendingCount: pending.length, pendingAmt, disputedAmt },
     byTruck: Object.values(byTruck).sort((a, b) => b.toll - a.toll),
+    byMonth,
+    tolls: tollRows,
     charges,
     refunds,
     flags,
     topPlazas,
   };
+}
+
+// Attribute toll transactions to each shipment/trip by date + tanker. A toll belongs to the latest
+// trip of that tanker whose (earliest) load date is on/before the toll date (the trip that was
+// running when the toll was charged); tolls before a tanker's first known trip fall to that first trip.
+// Returns { [shipmentNo | "solo:<loadId>"]: { toll, count } }. Used by the ledger for per-trip tolls.
+export async function fastagPerShipment(transportId, loads) {
+  await dbConnect();
+  const tolls = await FastagTxn.find({ transportId, type: "toll" }).select("vehicleNo txnDate amount plaza");
+  if (!tolls.length) return {};
+  const norm = (r) => String(r || "").replace(/\s/g, "").toUpperCase();
+  const groups = new Map(); // key -> { key, reg, date(ms) }
+  for (const l of loads) {
+    const key = l.shipmentNo || `solo:${l._id}`;
+    const g = groups.get(key) || { key, reg: "", date: null };
+    if (!g.reg) g.reg = norm(l.vehicleNo);
+    const d = l.loadDate ? new Date(l.loadDate).getTime() : null;
+    if (d != null && (g.date == null || d < g.date)) g.date = d; // trip start = earliest load date
+    groups.set(key, g);
+  }
+  const byTruck = {};
+  for (const g of groups.values()) { if (!g.reg || g.date == null) continue; (byTruck[g.reg] = byTruck[g.reg] || []).push(g); }
+  Object.values(byTruck).forEach((arr) => arr.sort((a, b) => a.date - b.date));
+  const out = {};
+  for (const t of tolls) {
+    const arr = byTruck[norm(t.vehicleNo)];
+    if (!arr || !arr.length) continue;
+    const td = t.txnDate ? new Date(t.txnDate).getTime() : null;
+    if (td == null) continue;
+    let pick = null;
+    for (const g of arr) { if (g.date <= td) pick = g; else break; }
+    if (!pick) pick = arr[0];
+    const o = (out[pick.key] = out[pick.key] || { toll: 0, count: 0, items: [] });
+    o.toll += t.amount; o.count++;
+    o.items.push({ date: t.txnDate, plaza: (t.plaza || "").split(" - ")[0] || "—", amount: t.amount });
+  }
+  for (const o of Object.values(out)) o.items.sort((a, b) => new Date(a.date) - new Date(b.date));
+  return out;
 }

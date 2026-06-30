@@ -36,8 +36,8 @@ const ADMIN_NAV = [
 // Configuration & tools — grouped under a single collapsible "Settings" menu.
 const SETUP_NAV = [
   { href: "/app/transports", label: "Transports", Icon: Building2, ownerOnly: true },
-  { href: "/app/trucks", label: "Trucks / Tankers", Icon: Truck },
   { href: "/app/drivers", label: "Drivers", Icon: Users },
+  { href: "/app/trucks", label: "Trucks / Tankers", Icon: Truck },
   { href: "/app/managers", label: "Managers", Icon: UserCog, ownerOnly: true },
   { href: "/app/uploads", label: "Uploads (Undo)", Icon: History },
   { href: "/app/settings", label: "App settings", Icon: Settings },

@@ -16,8 +16,9 @@ export default function Fastag() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const { data, mutate } = useApi(activeId ? `/api/fastag/report?transportId=${activeId}${period ? `&period=${period}` : ""}` : null);
-  const d = data || { months: [], totals: {}, byTruck: [], flags: [], topPlazas: [] };
+  const d = data || { months: [], totals: {}, byTruck: [], byMonth: [], tolls: [], flags: [], topPlazas: [] };
   const t = d.totals || {};
+  const fmtDate = (x) => (x ? new Date(x).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit", timeZone: "UTC" }) : "—");
 
   if (!activeId) return <Card>Select or create a transport first.</Card>;
 
@@ -75,7 +76,26 @@ export default function Fastag() {
 
       {(d.charges || []).length > 0 && <ChargesReview charges={d.charges} refunds={d.refunds || []} onChanged={mutate} />}
 
-      <Typography sx={{ fontSize: 14, fontWeight: 700, color: "text.primary" }}>Tolls by tanker</Typography>
+      {!period && (d.byMonth || []).length > 0 && (
+        <>
+          <Typography sx={{ fontSize: 14, fontWeight: 700, color: "text.primary" }}>Month by month</Typography>
+          <Table head={["Month", "Toll passes", "Tolls", "Non-toll", "Total cost", "Top-ups"]}>
+            {d.byMonth.map((m) => (
+              <Tr key={m.period} sx={{ cursor: "pointer" }} onClick={() => setPeriod(m.period)}>
+                <Td sx={{ fontWeight: 600, color: "primary.dark" }}>{monthName(m.period)}</Td>
+                <Td>{m.count}</Td>
+                <Td sx={{ fontWeight: 600 }}>{rupee(m.toll)}</Td>
+                <Td sx={{ color: m.nonToll > 0 ? "error.main" : "text.secondary" }}>{rupee(m.nonToll)}</Td>
+                <Td sx={{ fontWeight: 600 }}>{rupee(m.cost)}</Td>
+                <Td sx={{ color: "success.main" }}>{rupee(m.topup)}</Td>
+              </Tr>
+            ))}
+          </Table>
+          <Typography sx={{ fontSize: 12, color: "text.disabled", mt: -1 }}>Tap a month to see its tankers, plazas and every toll.</Typography>
+        </>
+      )}
+
+      <Typography sx={{ fontSize: 14, fontWeight: 700, color: "text.primary" }}>Tolls by tanker{period ? ` — ${monthName(period)}` : ""}</Typography>
       <Table head={["Tanker", "Toll passes", "Tolls paid"]}>
         {d.byTruck.map((r) => (
           <Tr key={r.vehicleNo}>
@@ -89,10 +109,26 @@ export default function Fastag() {
 
       {d.topPlazas.length > 0 && (
         <>
-          <Typography sx={{ fontSize: 14, fontWeight: 700, color: "text.primary" }}>Top toll plazas</Typography>
+          <Typography sx={{ fontSize: 14, fontWeight: 700, color: "text.primary" }}>Top toll plazas{period ? ` — ${monthName(period)}` : ""}</Typography>
           <Table head={["Plaza", "Passes", "Total"]}>
             {d.topPlazas.map((p) => (
               <Tr key={p.plaza}><Td sx={{ color: "text.primary" }}>{p.plaza}</Td><Td>{p.count}</Td><Td sx={{ fontWeight: 600 }}>{rupee(p.amount)}</Td></Tr>
+            ))}
+          </Table>
+        </>
+      )}
+
+      {(d.tolls || []).length > 0 && (
+        <>
+          <Typography sx={{ fontSize: 14, fontWeight: 700, color: "text.primary" }}>Toll transactions{period ? ` — ${monthName(period)}` : ""} <Box component="span" sx={{ fontWeight: 400, color: "text.disabled" }}>({d.tolls.length})</Box></Typography>
+          <Table head={["Date", "Tanker", "Plaza", "Amount"]}>
+            {d.tolls.map((tx) => (
+              <Tr key={tx.id}>
+                <Td sx={{ whiteSpace: "nowrap" }}>{fmtDate(tx.date)}</Td>
+                <Td sx={{ fontWeight: 600, color: "text.primary" }}>{tx.vehicleNo || "—"}</Td>
+                <Td sx={{ color: "text.secondary" }}>{tx.plaza || "—"}</Td>
+                <Td sx={{ fontWeight: 600 }}>{rupee(tx.amount)}</Td>
+              </Tr>
             ))}
           </Table>
         </>

@@ -1,12 +1,12 @@
 "use client";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useApp } from "@/lib/appContext";
 import { api } from "@/lib/clientApi";
 import { useApi } from "@/lib/useApi";
 import { Card, Button, Field, Select, Input, Table, Td, Tr, Badge, rupee, IconButton, useConfirm } from "@/components/ui";
 import { MonthPicker, DatePicker } from "@/components/DatePicker";
 import { Box, Typography } from "@mui/material";
-import { Wallet, CheckCircle2, Trash2, Plus, CalendarDays } from "@/components/icons";
+import { Wallet, CheckCircle2, Trash2, Plus, CalendarDays, ChevronDown, ChevronRight } from "@/components/icons";
 
 function thisMonth() {
   const d = new Date();
@@ -24,6 +24,7 @@ export default function Salaries() {
   const [period, setPeriod] = useState(thisMonth());
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [openId, setOpenId] = useState(null); // payslip whose deduction breakdown is expanded
   const { confirm, ConfirmModal } = useConfirm();
 
   useEffect(() => { if (!driverId && drivers[0]) setDriverId(drivers[0].id); }, [driverId, drivers]);
@@ -67,15 +68,28 @@ export default function Salaries() {
       {driver && <LeavePanel transportId={activeId} driver={driver} />}
 
       <Table head={["Period", "Driver", "Monthly", "Days paid", "Leave", "Base", "Deductions", "Net pay", "Status", ""]}>
-        {slips.map((p) => (
-          <Tr key={p.id}>
+        {slips.map((p) => {
+          const dedTotal = p.deductions.reduce((s, d) => s + d.amount, 0);
+          const addTotal = (p.additions || []).reduce((s, a) => s + a.amount, 0);
+          const hasDetail = p.deductions.length > 0 || addTotal > 0;
+          const open = openId === p.id;
+          return (
+          <Fragment key={p.id}>
+          <Tr>
             <Td>{p.period}</Td>
             <Td sx={{ fontWeight: 500, color: "text.primary" }}>{driverName(p.driverId)}</Td>
             <Td>{rupee(p.monthlySalary || p.baseSalary)}</Td>
             <Td>{p.daysInMonth ? `${p.payableDays}/${p.daysInMonth}` : "—"}</Td>
             <Td>{p.leaveDays ? <Badge tone="yellow">{p.leaveDays}d</Badge> : "—"}</Td>
             <Td>{rupee(p.baseSalary)}</Td>
-            <Td>{rupee(p.deductions.reduce((s, d) => s + d.amount, 0))}</Td>
+            <Td>
+              {hasDetail ? (
+                <Box component="button" onClick={() => setOpenId(open ? null : p.id)}
+                  sx={{ display: "inline-flex", alignItems: "center", gap: 0.25, border: "none", bgcolor: "transparent", cursor: "pointer", p: 0, font: "inherit", color: dedTotal > 0 ? "error.main" : "text.primary", fontWeight: 600, "&:hover": { textDecoration: "underline" } }}>
+                  {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}{rupee(dedTotal)}
+                </Box>
+              ) : rupee(dedTotal)}
+            </Td>
             <Td sx={{ fontWeight: 600 }}>{rupee(p.netPay)}</Td>
             <Td><Badge tone={p.status === "paid" ? "green" : "yellow"}>{p.status}</Badge></Td>
             <Td><Box sx={{ display: "flex", justifyContent: "flex-end", gap: 0.5 }}>{p.status === "draft" && <>
@@ -83,7 +97,39 @@ export default function Salaries() {
               <IconButton Icon={Trash2} label="Discard" tone="rose" onClick={() => discard(p.id)} />
             </>}</Box></Td>
           </Tr>
-        ))}
+          {open && hasDetail && (
+            <Tr>
+              <Td colSpan={10} sx={{ bgcolor: "rgba(15,23,42,0.02)", py: 1.5 }}>
+                <Box sx={{ pl: 2 }}>
+                  <Typography sx={{ fontSize: 12, fontWeight: 700, color: "text.secondary", textTransform: "uppercase", letterSpacing: 0.4, mb: 0.5 }}>Salary breakdown — {p.period}</Typography>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", maxWidth: 520, fontSize: 13.5, py: 0.4 }}>
+                    <Typography sx={{ color: "text.secondary" }}>Pro-rated base ({p.payableDays}/{p.daysInMonth} days)</Typography>
+                    <Typography sx={{ fontWeight: 600 }}>{rupee(p.baseSalary)}</Typography>
+                  </Box>
+                  {(p.additions || []).map((a, i) => (
+                    <Box key={`a${i}`} sx={{ display: "flex", justifyContent: "space-between", maxWidth: 520, fontSize: 13.5, py: 0.4 }}>
+                      <Typography sx={{ color: "success.main" }}>+ {a.reason || "Addition"}</Typography>
+                      <Typography sx={{ fontWeight: 600, color: "success.main" }}>+{rupee(a.amount)}</Typography>
+                    </Box>
+                  ))}
+                  {p.deductions.length === 0 && <Typography sx={{ fontSize: 13, color: "text.disabled", py: 0.4 }}>No deductions.</Typography>}
+                  {p.deductions.map((d, i) => (
+                    <Box key={`d${i}`} sx={{ display: "flex", justifyContent: "space-between", maxWidth: 520, fontSize: 13.5, py: 0.4 }}>
+                      <Typography sx={{ color: "error.main" }}>− {d.reason || "Deduction"}</Typography>
+                      <Typography sx={{ fontWeight: 600, color: "error.main" }}>−{rupee(d.amount)}</Typography>
+                    </Box>
+                  ))}
+                  <Box sx={{ display: "flex", justifyContent: "space-between", maxWidth: 520, fontSize: 14, py: 0.6, mt: 0.4, borderTop: "1px solid", borderColor: "divider" }}>
+                    <Typography sx={{ fontWeight: 700 }}>Net pay</Typography>
+                    <Typography sx={{ fontWeight: 800 }}>{rupee(p.netPay)}</Typography>
+                  </Box>
+                </Box>
+              </Td>
+            </Tr>
+          )}
+          </Fragment>
+          );
+        })}
         {slips.length === 0 && <Tr><Td sx={{ color: "text.disabled" }}>No payslips yet.</Td></Tr>}
       </Table>
       {ConfirmModal}

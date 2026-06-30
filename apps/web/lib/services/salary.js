@@ -64,9 +64,18 @@ export async function generatePayslip({ ownerId, transportId, driverId, period, 
     await Shortage.updateMany({ payslipId: slip._id }, { status: "open", payslipId: null });
   }
 
-  // Open shortages for this driver reported on/before the period end.
+  // Shortages to deduct: open, reported on/before this period's end — but NOT from before the driver
+  // joined, nor before the last PAID payslip. This stops an old/un-deducted backlog (e.g. shortages
+  // from loads dated before this driver's joining date) from dumping into a later month's payslip.
   const cutoff = endOfPeriod(period);
-  const shortages = await Shortage.find({ driverId, status: "open", reportedAt: { $lte: cutoff } });
+  const lastPaid = await SalaryRecord.findOne({ driverId, status: "paid", period: { $lt: period } }).sort({ period: -1 });
+  const lowerMs = Math.max(
+    driver.joiningDate ? dayUTC(driver.joiningDate) : -Infinity,
+    lastPaid ? endOfPeriod(lastPaid.period).getTime() + 1 : -Infinity
+  );
+  const reportedAt = { $lte: cutoff };
+  if (Number.isFinite(lowerMs)) reportedAt.$gte = new Date(lowerMs);
+  const shortages = await Shortage.find({ driverId, status: "open", reportedAt });
 
   const deductions = shortages.map((s) => ({
     reason: `Oil shortage (inv ${s.invoiceNumber || "?"}, ${s.shortageL}L)`,

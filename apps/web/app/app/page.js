@@ -123,8 +123,9 @@ function OwnerOverview({ activeId, company = "all" }) {
   const skip = !activeId || (range === "custom" && !custom.from && !custom.to);
   const key = skip ? null : `/api/reports/spend?${new URLSearchParams({ transportId: activeId, company, ...presetParams(range, custom) }).toString()}`;
   const { data: s, isLoading } = useApi(key);
-  // Settlement / collection state is "now" (not date-filtered) — comes from the ledger summary.
-  const { data: led } = useApi(activeId ? `/api/ledger?transportId=${activeId}&company=${company}` : null);
+  // Settlement / collection cards follow the SAME period filter as the spend tiles (by delivery date).
+  const ledKey = skip ? null : `/api/ledger?${new URLSearchParams({ transportId: activeId, company, ...presetParams(range, custom) }).toString()}`;
+  const { data: led } = useApi(ledKey);
   const loading = isLoading;
 
   if (!activeId) return <Card>Create a transport first to see your dashboard. <Box component={Link} href="/app/transports" sx={{ color: "info.main", textDecoration: "underline" }}>Add transport →</Box></Card>;

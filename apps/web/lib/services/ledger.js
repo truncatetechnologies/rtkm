@@ -156,8 +156,11 @@ export async function shipmentSummaryForLoad(scope, load) {
 }
 
 // Freight statement → upsert loads (estimated freight) + per-litre driver shortages.
-export async function importFreightStatement({ scope, parsed }) {
+// `minDate` (optional): skip rows whose DELIVERY date is before it — a statement received in your
+// import window often covers the previous fortnight, so this keeps the ledger to the chosen start.
+export async function importFreightStatement({ scope, parsed, minDate = null }) {
   await dbConnect();
+  const min = minDate ? new Date(minDate) : null;
   const trucks = await Truck.find({ transportId: scope.transportId });
   const truckByReg = {};
   trucks.forEach((t) => { if (t.registrationNo) truckByReg[t.registrationNo.replace(/\s/g, "").toUpperCase()] = t; });
@@ -165,12 +168,14 @@ export async function importFreightStatement({ scope, parsed }) {
   // Pull pump name (+ fallback RTKM) for every customer code in the statement, in one query.
   const pumpInfo = await lookupPumps(scope.transportId, parsed.rows.map((r) => r.customerCode));
 
-  let created = 0, updated = 0, shortagesCreated = 0;
+  let created = 0, updated = 0, shortagesCreated = 0, skipped = 0;
   const createdLoadIds = [], createdShortageIds = [];
   for (const r of parsed.rows) {
     const truck = truckByReg[(r.vehicle || "").replace(/\s/g, "").toUpperCase()];
     const driverId = truck?.assignedDriverId || null;
     const date = parseFlexDate(r.invoiceDate);
+    // Honour the import start date: drop deliveries older than it (keeps pre-period rows out).
+    if (min && date && date < min) { skipped++; continue; }
     const shortageL = +(r.shortageKL * 1000).toFixed(2);
     const pi = pumpInfo[String(r.customerCode || "").trim()] || {};
     const fields = {
@@ -209,7 +214,7 @@ export async function importFreightStatement({ scope, parsed }) {
   // Keep master RTKM in sync (auto-fill empty, queue mismatches for admin approval).
   await reconcileRtkm({ transportId: scope.transportId, ownerId: scope.ownerId, source: "freight",
     rows: parsed.rows.map((r) => ({ cmsCode: r.customerCode, rtkm: r.rtkm, invoiceNumber: r.salesInvNo })) });
-  return { created, updated, shortagesCreated, createdLoadIds, createdShortageIds };
+  return { created, updated, shortagesCreated, skipped, createdLoadIds, createdShortageIds };
 }
 
 // Payment advice → match lines to loads, capture gross/TDS/deduction/net, mark settled.
@@ -337,7 +342,7 @@ export async function revertUpload({ scope, upload }) {
 
 // Detect doc kind by STRUCTURE (not just the title), parse, run the right pipeline.
 // A freight/delivery statement is identified by its row pattern; a payment advice by its line pattern.
-export async function processLedgerPdf({ scope, buffer, filename, force = false, text: pretext }) {
+export async function processLedgerPdf({ scope, buffer, filename, force = false, text: pretext, minDate = null }) {
   await dbConnect();
   const text = pretext != null ? pretext : await extractText(buffer);
   const relPath = await saveFile(scope, buffer, filename).catch(() => "");
@@ -361,7 +366,7 @@ export async function processLedgerPdf({ scope, buffer, filename, force = false,
     if (missingInvoices.length && !force) {
       return { kind: "freight", needsConfirm: true, missingInvoices, rows: freight.rows.length, company: freight.company, reference: freight.reference, ...dup };
     }
-    const result = await importFreightStatement({ scope, parsed: freight });
+    const result = await importFreightStatement({ scope, parsed: freight, minDate });
     const up = await record("freight", {
       summary: `${result.created} new + ${result.updated} updated deliveries, ${result.shortagesCreated} shortage(s)`,
       createdLoadIds: result.createdLoadIds, createdShortageIds: result.createdShortageIds,
@@ -394,6 +399,13 @@ export async function processLedgerPdf({ scope, buffer, filename, force = false,
   // Single tax invoice → auto-create the load (dates read from the invoice itself)
   const inv = parseInvoice(text);
   if (inv.fields?.invoiceNumber && (inv.confidence === "high" || inv.fields.pumpCode)) {
+    // Honour the import start date: don't create an invoice older than it.
+    if (minDate) {
+      const invDate = parseFlexDate(inv.fields.invoiceDate);
+      if (invDate && invDate < new Date(minDate)) {
+        return { kind: "invoice", skipped: true, invoiceNumber: inv.fields.invoiceNumber, ...dup };
+      }
+    }
     const { load, created, truckReg, truckInFleet, driverAssigned } = await createLoadFromInvoice(scope, inv.fields);
     await recomputeShipmentOil(scope); // a new invoice may extend its shipment's max RTKM
     const shipment = await shipmentSummaryForLoad(scope, load); // total/longest RTKM + diesel for the trip

@@ -4,7 +4,7 @@ import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { getUser, setToken, setUser, getServerUrl, getToken } from "../../lib/config";
 import {
-  login, ownerRegister, getTransports, updateTransport, getMembers, createMember, updateMember, getTrucks, createTruck, updateTruck,
+  login, ownerRegister, getTransports, updateTransport, wipeTransport, getMembers, createMember, updateMember, getTrucks, createTruck, updateTruck,
   getLoads, getShortages, getSpend, getMyLoads, getMyPayslips,
   uploadInvoice, uploadShortage, confirmInvoice, confirmShortage, setMealAllowance,
   getMaintenance, createMaintenance, getSalaries, generateSalary, paySalary, discardSalary,
@@ -22,6 +22,16 @@ import { C, R, S, shadow } from "../../lib/theme";
 import { Card, AppButton, Chip, Tile, GradientHeader, EmptyState, ScreenBg, MaterialCommunityIcons, LinearGradient } from "../../components/ui";
 
 const rupee = (n) => "₹" + Math.round(n || 0).toLocaleString("en-IN");
+
+// Multi-line payslip breakdown for the details dialog: base, additions, each deduction, net.
+function payslipDetail(p) {
+  const lines = [`Base pay (${p.payableDays}/${p.daysInMonth} days): ${rupee(p.baseSalary)}`];
+  (p.additions || []).forEach((a) => lines.push(`+ ${a.reason || "Addition"}: ${rupee(a.amount)}`));
+  if (!p.deductions || p.deductions.length === 0) lines.push("No deductions.");
+  else p.deductions.forEach((d) => lines.push(`− ${d.reason || "Deduction"}: ${rupee(d.amount)}`));
+  lines.push(`Net pay: ${rupee(p.netPay)}`);
+  return lines.join("\n");
+}
 
 export default function Fleet() {
   const [user, setUserState] = useState(undefined);
@@ -295,9 +305,11 @@ function DriverFleet({ user, onLogout }) {
         <Text style={s.section}>My payslips</Text>
         {pay.payslips.length === 0 ? <EmptyState icon="cash-multiple" text="No payslips yet" /> :
           pay.payslips.map((p) => (
-            <ListRow key={p.id} icon="cash" title={p.period}
-              meta={`base ${rupee(p.baseSalary)}${p.daysInMonth ? ` (${p.payableDays}/${p.daysInMonth}d${p.leaveDays ? `, ${p.leaveDays} leave` : ""})` : ""} − cuts ${rupee(p.deductions.reduce((a, d) => a + d.amount, 0))} · ${p.status}`}
-              right={rupee(p.netPay)} rightTone={p.status === "paid" ? "green" : null} />
+            <TouchableOpacity key={p.id} onPress={() => Alert.alert(`Payslip · ${p.period}`, payslipDetail(p))} activeOpacity={0.7}>
+              <ListRow icon="cash" title={p.period}
+                meta={`base ${rupee(p.baseSalary)}${p.daysInMonth ? ` (${p.payableDays}/${p.daysInMonth}d${p.leaveDays ? `, ${p.leaveDays} leave` : ""})` : ""} − cuts ${rupee(p.deductions.reduce((a, d) => a + d.amount, 0))} · tap for details`}
+                right={rupee(p.netPay)} rightTone={p.status === "paid" ? "green" : null} />
+            </TouchableOpacity>
           ))}
 
         <Text style={s.section}>My meter readings</Text>
@@ -411,6 +423,7 @@ const reasonLabel = (r) => EXTRA_REASONS.find(([k]) => k === r)?.[1] || r;
 const COMPANY_LABEL = { nayara: "Nayara", bpcl: "BPCL", ioc: "IOC", hpcl: "HPCL" };
 const companyLabel = (c) => COMPANY_LABEL[c] || (c ? c.toUpperCase() : "All");
 const monthShort = (m) => { if (!m) return "—"; const [y, mo] = m.split("-"); return new Date(Date.UTC(+y, +mo - 1, 1)).toLocaleString("en-IN", { month: "short", year: "numeric", timeZone: "UTC" }); };
+const fmtDay = (x) => (x ? new Date(x).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit", timeZone: "UTC" }) : "—");
 
 const UPLOAD_KIND = {
   invoice: { label: "Invoice", icon: "file-document" },
@@ -440,7 +453,10 @@ function groupByShipment(loads, extra) {
       freight: g.loads.reduce((s, l) => s + (l.freightAmount || 0), 0),
       maxRtkm: g.loads.reduce((m, l) => Math.max(m, l.rtkm || 0), 0),
       oil: g.loads.reduce((m, l) => Math.max(m, l.shipmentOilLiters || 0), 0),
+      oilCost: g.loads.reduce((s, l) => s + (l.oilCost || 0), 0),
+      meal: g.loads.reduce((s, l) => s + (l.mealAllowance || 0), 0),
       extraL: extraEntries.reduce((s, e) => s + (e.litres || 0), 0),
+      extraCost: extraEntries.reduce((s, e) => s + (e.cost || 0), 0),
     };
   });
 }
@@ -492,7 +508,8 @@ function OwnerFleet({ user, onLogout }) {
   const [notifs, setNotifs] = useState({ notifications: [], unread: 0 });
   const [notifOpen, setNotifOpen] = useState(false);
   const [profit, setProfit] = useState({ rows: [], totals: {} });
-  const [fastag, setFastag] = useState({ totals: {}, byTruck: [], flags: [], topPlazas: [] });
+  const [fastag, setFastag] = useState({ totals: {}, byTruck: [], byMonth: [], tolls: [], months: [], flags: [], topPlazas: [] });
+  const [fastagPeriod, setFastagPeriod] = useState("");
   const [fastagBusy, setFastagBusy] = useState(false);
   const [modal, setModal] = useState(null);
 
@@ -506,7 +523,7 @@ function OwnerFleet({ user, onLogout }) {
       setSpend(await getSpend(tid, from, to, company)); setLoads(await getLoads(tid)); setShortages(await getShortages(tid));
       setDrivers(await getMembers(tid, "driver")); setTrucks(await getTrucks(tid));
       setMaintenance(await getMaintenance(tid)); setManagers(await getMembers(tid, "manager"));
-      setSalaries(await getSalaries(tid)); setLedger(await getLedger(tid, company));
+      setSalaries(await getSalaries(tid)); setLedger(await getLedger(tid, company, from, to));
       setDriverShortage(await getDriverShortage(tid));
       setUploads(await getUploads(tid));
       setMeterReadings(await getMeterReadings(tid));
@@ -515,7 +532,7 @@ function OwnerFleet({ user, onLogout }) {
       getCompanies(tid).then((c) => { setCompanies(c || []); if (company !== "all" && !(c || []).includes(company)) setCompany("all"); }).catch(() => {});
       getNotifications(tid).then(setNotifs).catch(() => {});
       getProfitability(tid).then(setProfit).catch(() => {});
-      getFastagReport(tid).then(setFastag).catch(() => {});
+      getFastagReport(tid, fastagPeriod).then(setFastag).catch(() => {});
     } catch {}
   }, [tid, range, company]);
   async function pickFastag() {
@@ -540,6 +557,7 @@ function OwnerFleet({ user, onLogout }) {
   useEffect(() => { if (tid) checkNotifications(tid).then(() => getNotifications(tid).then(setNotifs)).catch(() => {}); }, [tid]);
   // Register this device for OS push (no-op on simulators / without an EAS build).
   useEffect(() => { if (tid) registerForPush((token) => registerPush(tid, token)).catch(() => {}); }, [tid]);
+  useEffect(() => { if (tid) getFastagReport(tid, fastagPeriod).then(setFastag).catch(() => {}); }, [tid, fastagPeriod]);
   async function openNotifs() {
     setNotifOpen(true);
     if (notifs.unread > 0) { try { await markNotificationsRead(tid); setNotifs((n) => ({ ...n, unread: 0 })); } catch {} }
@@ -550,13 +568,13 @@ function OwnerFleet({ user, onLogout }) {
   const activeTransport = transports.find((x) => x.id === tid) || null;
   const driverName = (id) => drivers.find((d) => d.id === id)?.name || "—";
   const truckName = (id) => { const tk = trucks.find((x) => x.id === id); return tk ? (tk.name || tk.registrationNo) : "—"; };
-  async function markPaid(p) {
-    if (p.status !== "draft") return;
-    Alert.alert(`Payslip · ${p.period}`, `${driverName(p.driverId)} · net ${rupee(p.netPay)}`, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Discard", style: "destructive", onPress: async () => { try { await discardSalary(p.id); refresh(); } catch (e) { Alert.alert("Error", String(e.message || e)); } } },
-      { text: "Mark paid", onPress: async () => { try { await paySalary(p.id); refresh(); } catch (e) { Alert.alert("Error", String(e.message || e)); } } },
-    ]);
+  function markPaid(p) {
+    const btns = [{ text: "Close", style: "cancel" }];
+    if (p.status === "draft") {
+      btns.push({ text: "Discard", style: "destructive", onPress: async () => { try { await discardSalary(p.id); refresh(); } catch (e) { Alert.alert("Error", String(e.message || e)); } } });
+      btns.push({ text: "Mark paid", onPress: async () => { try { await paySalary(p.id); refresh(); } catch (e) { Alert.alert("Error", String(e.message || e)); } } });
+    }
+    Alert.alert(`Payslip · ${driverName(p.driverId)} · ${p.period}`, payslipDetail(p), btns);
   }
   async function toggleDriverAccess(d) {
     try { await updateMember(d.id, { appAccessEnabled: !d.appAccessEnabled }); refresh(); }
@@ -674,6 +692,9 @@ function OwnerFleet({ user, onLogout }) {
                 {user.role === "owner" && activeTransport && (
                   <OilAvgCard transport={activeTransport} onSaved={refresh} />
                 )}
+                {user.role === "owner" && activeTransport && (
+                  <DangerCard transport={activeTransport} onWiped={refresh} />
+                )}
               </>
             )}
 
@@ -766,17 +787,29 @@ function OwnerFleet({ user, onLogout }) {
                 })()}
                 <View style={{ height: S.md }} />
                 {(ledger.loads || []).length === 0 ? <EmptyState icon="clipboard-list-outline" text="No deliveries. Upload a Statement of Freight." /> :
-                  groupByShipment(ledger.loads, extraOil).map((g) => (
+                  groupByShipment(ledger.loads, extraOil).map((g) => {
+                    const ft = (ledger.fastagByShipment || {})[g.shipmentNo || `solo:${g.loads[0].id}`];
+                    return (
                     <View key={g.shipmentNo || g.loads[0].id} style={s.shipCard}>
                       <View style={s.shipHead}>
                         <MaterialCommunityIcons name="truck-fast" size={15} color="#4338ca" />
                         <Text style={s.shipTitle}>{g.shipmentNo ? `Shipment ${g.shipmentNo}` : "Single load"}</Text>
                         <Text style={s.shipMeta}>{g.pumps} pump{g.pumps > 1 ? "s" : ""} · {g.cargo.toLocaleString("en-IN")}L</Text>
                         <View style={{ flex: 1 }} />
+                        {ft && ft.toll > 0 && (
+                          <TouchableOpacity onPress={() => Alert.alert(`FASTag tolls · ${rupee(ft.toll)}`, `${ft.count} pass${ft.count === 1 ? "" : "es"} matched to this trip by date:\n\n` + (ft.items || []).map((it) => `${fmtDay(it.date)} · ${it.plaza} · ${rupee(it.amount)}`).join("\n"))} activeOpacity={0.7} style={{ flexDirection: "row", alignItems: "center", marginRight: 8 }}>
+                            <MaterialCommunityIcons name="boom-gate" size={14} color="#7c3aed" />
+                            <Text style={[s.shipOil, { color: "#7c3aed" }]}>{rupee(ft.toll)}</Text>
+                          </TouchableOpacity>
+                        )}
                         <MaterialCommunityIcons name="fuel" size={14} color="#2563eb" />
-                        <Text style={s.shipOil}>{g.oil}{g.extraL > 0 ? `+${g.extraL}` : ""} L</Text>
+                        <Text style={s.shipOil}>{g.oil}{g.extraL > 0 ? `+${g.extraL}` : ""} L · {rupee(g.oilCost + g.extraCost)}</Text>
                       </View>
-                      {g.pumps > 1 && <Text style={s.shipSub}>Farthest {g.maxRtkm} km (used for oil) · freight {rupee(g.freight)}</Text>}
+                      <Text style={s.shipSub}>
+                        {g.pumps > 1 ? `Farthest ${g.maxRtkm} km · freight ${rupee(g.freight)} · ` : ""}
+                        <Text style={{ fontWeight: "800", color: "#e11d48" }}>spend {rupee(g.oilCost + g.extraCost + g.meal + (ft?.toll || 0))}</Text>
+                        {g.meal > 0 ? ` (incl. ${rupee(g.meal)} meal)` : ""}
+                      </Text>
                       {g.loads.map((l) => <LedgerRow key={l.id} l={l} />)}
                       {g.extraEntries.map((e) => (
                         <TouchableOpacity key={e.id} onPress={() => removeExtraOil(e)} activeOpacity={0.7} style={s.extraRow}>
@@ -791,7 +824,7 @@ function OwnerFleet({ user, onLogout }) {
                         <Text style={s.extraAddText}>Add extra oil</Text>
                       </TouchableOpacity>
                     </View>
-                  ))}
+                  ); })}
               </View>
             )}
 
@@ -827,6 +860,12 @@ function OwnerFleet({ user, onLogout }) {
                 <Text style={s.rowMeta}>Upload BlackBuck BOSS wallet + each tanker statement. Tolls are the truth; the wallet is checked for extra/non-toll charges.</Text>
                 <View style={{ height: S.md }} />
                 <AppButton title={fastagBusy ? "Reading…" : "Upload FASTag PDFs"} icon="upload" onPress={pickFastag} loading={fastagBusy} />
+                {(fastag.months || []).length > 0 && (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2, marginTop: S.md }}>
+                    <Chip label="All time" active={!fastagPeriod} onPress={() => setFastagPeriod("")} />
+                    {fastag.months.map((m) => <Chip key={m} label={monthShort(m)} active={m === fastagPeriod} onPress={() => setFastagPeriod(m)} />)}
+                  </ScrollView>
+                )}
                 <View style={[s.tiles, { marginTop: S.md }]}>
                   <Tile label="Tolls paid" value={rupee(fastag.totals?.totalToll)} icon="boom-gate" tone="indigo" />
                   <Tile label="Non-toll charges" value={rupee(fastag.totals?.extras)} icon="alert" tone={(fastag.totals?.extras || 0) > 0 ? "rose" : "green"} />
@@ -853,7 +892,20 @@ function OwnerFleet({ user, onLogout }) {
                   </>
                 )}
 
-                <Text style={[s.section, { marginTop: S.lg }]}>Tolls by tanker</Text>
+                {!fastagPeriod && (fastag.byMonth || []).length > 0 && (
+                  <>
+                    <Text style={[s.section, { marginTop: S.lg }]}>Month by month (tap to open)</Text>
+                    {fastag.byMonth.map((m) => (
+                      <TouchableOpacity key={m.period} onPress={() => setFastagPeriod(m.period)} activeOpacity={0.7}>
+                        <ListRow icon="calendar-month" title={monthShort(m.period)}
+                          meta={`${m.count} passes · non-toll ${rupee(m.nonToll)} · top-up ${rupee(m.topup)}`}
+                          right={rupee(m.cost)} />
+                      </TouchableOpacity>
+                    ))}
+                  </>
+                )}
+
+                <Text style={[s.section, { marginTop: S.lg }]}>Tolls by tanker{fastagPeriod ? ` · ${monthShort(fastagPeriod)}` : ""}</Text>
                 {(fastag.byTruck || []).length === 0 ? <Text style={s.rowMeta}>No FASTag data yet.</Text> :
                   fastag.byTruck.map((r) => (
                     <ListRow key={r.vehicleNo} icon="boom-gate" title={r.vehicleNo}
@@ -861,6 +913,16 @@ function OwnerFleet({ user, onLogout }) {
                   ))}
                 {(fastag.topPlazas || []).length > 0 && <Text style={[s.section, { marginTop: S.lg }]}>Top plazas</Text>}
                 {(fastag.topPlazas || []).map((p, i) => <ListRow key={i} icon="map-marker" title={p.plaza} meta={`${p.count} passes`} right={rupee(p.amount)} />)}
+
+                {(fastag.tolls || []).length > 0 && (
+                  <>
+                    <Text style={[s.section, { marginTop: S.lg }]}>Toll transactions ({fastag.tolls.length})</Text>
+                    {fastag.tolls.slice(0, 100).map((tx) => (
+                      <ListRow key={tx.id} icon="boom-gate" title={`${tx.vehicleNo || "—"} · ${rupee(tx.amount)}`}
+                        meta={`${fmtDay(tx.date)} · ${tx.plaza || "—"}`} />
+                    ))}
+                  </>
+                )}
               </View>
             )}
 
@@ -870,9 +932,9 @@ function OwnerFleet({ user, onLogout }) {
                 <View style={{ height: S.md }} />
                 {salaries.length === 0 ? <EmptyState icon="cash-multiple" text="No payslips" /> :
                   salaries.map((p) => (
-                    <TouchableOpacity key={p.id} onPress={() => markPaid(p)} activeOpacity={p.status === "draft" ? 0.7 : 1}>
+                    <TouchableOpacity key={p.id} onPress={() => markPaid(p)} activeOpacity={0.7}>
                       <ListRow icon="cash" title={`${driverName(p.driverId)} · ${p.period}`}
-                        meta={`base ${rupee(p.baseSalary)}${p.daysInMonth ? ` (${p.payableDays}/${p.daysInMonth}d${p.leaveDays ? `, ${p.leaveDays} leave` : ""})` : ""} − cuts ${rupee(p.deductions.reduce((a, d) => a + d.amount, 0))}${p.status === "draft" ? " · tap: pay / discard" : ""}`}
+                        meta={`base ${rupee(p.baseSalary)}${p.daysInMonth ? ` (${p.payableDays}/${p.daysInMonth}d${p.leaveDays ? `, ${p.leaveDays} leave` : ""})` : ""} − cuts ${rupee(p.deductions.reduce((a, d) => a + d.amount, 0))} · tap for details`}
                         right={rupee(p.netPay)} rightTone={p.status === "paid" ? "green" : null} />
                     </TouchableOpacity>
                   ))}
@@ -1703,30 +1765,71 @@ function OilAvgCard({ transport, onSaved }) {
     try { await updateTransport(transport.id, { tankerAvg: v, dieselPrice: Number(price) || 0, mealAllowancePerTrip: Number(meal) || 0 }); Alert.alert("Saved", `Average ${v} km/L · diesel ₹${Number(price) || 0}/L · meal ₹${Number(meal) || 0}/trip. Reports updated.`); onSaved && onSaved(); }
     catch (e) { Alert.alert("Error", String(e.message || e)); } finally { setBusy(false); }
   }
+  const Field = ({ label, icon, unit, value, onChangeText, placeholder, hint }) => (
+    <View style={{ marginBottom: 12 }}>
+      <Text style={{ fontSize: 13, fontWeight: "700", color: C.ink, marginBottom: 4 }}>{label}</Text>
+      <View style={[s.inputWrap, { marginBottom: 0 }]}>
+        <MaterialCommunityIcons name={icon} size={18} color={C.faint} />
+        <TextInput style={s.input} value={value} onChangeText={onChangeText} keyboardType="numeric" placeholder={placeholder} placeholderTextColor={C.faint} />
+        <Text style={{ fontSize: 12, fontWeight: "700", color: C.sub }}>{unit}</Text>
+      </View>
+      <Text style={[s.fieldHint, { marginTop: 4 }]}>{hint}</Text>
+    </View>
+  );
   return (
     <Card style={{ marginTop: S.md }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
         <MaterialCommunityIcons name="fuel" size={20} color="#2563eb" />
         <Text style={{ fontSize: 16, fontWeight: "800", color: C.ink }}>Diesel & trip settings</Text>
       </View>
-      <Text style={s.fieldHint}>Average = km/L (sets oil per shipment). Diesel ₹/L values the diesel given. Meal allowance = flat ₹ per trip given to the driver (food/team), added to Spend & Profit.</Text>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-        <View style={[s.inputWrap, { flex: 1, marginBottom: 0 }]}>
-          <MaterialCommunityIcons name="speedometer" size={18} color={C.faint} />
-          <TextInput style={s.input} value={avg} onChangeText={setAvg} keyboardType="numeric" placeholder="4.5 km/L" placeholderTextColor={C.faint} />
-        </View>
-        <View style={[s.inputWrap, { flex: 1, marginBottom: 0 }]}>
-          <MaterialCommunityIcons name="currency-inr" size={18} color={C.faint} />
-          <TextInput style={s.input} value={price} onChangeText={setPrice} keyboardType="numeric" placeholder="₹/L" placeholderTextColor={C.faint} />
-        </View>
+      <Text style={[s.fieldHint, { marginBottom: 10 }]}>These three numbers turn each trip into real ₹ in your Spend & Profit reports. Set them once.</Text>
+      <Field label="Tanker mileage" icon="speedometer" unit="km / L" value={avg} onChangeText={setAvg} placeholder="e.g. 4.5"
+        hint="How far the tanker runs on 1 litre. Sets the diesel for each trip." />
+      <Field label="Diesel price" icon="currency-inr" unit="₹ / litre" value={price} onChangeText={setPrice} placeholder="e.g. 95"
+        hint="What you pay for 1 litre of diesel. Turns diesel given into a ₹ cost." />
+      <Field label="Meal allowance" icon="food" unit="₹ / trip" value={meal} onChangeText={setMeal} placeholder="e.g. 1000"
+        hint="Flat food / expense money you give the driver each trip. Put 0 if none." />
+      <AppButton title={busy ? "Saving…" : "Save settings"} icon="content-save" onPress={save} disabled={busy} style={{ marginTop: 4 }} />
+    </Card>
+  );
+}
+
+// Owner self-service "fresh start": wipe this transport's transactional data (test uploads etc.).
+function DangerCard({ transport, onWiped }) {
+  const [includeFleet, setIncludeFleet] = useState(false);
+  const [busy, setBusy] = useState(false);
+  function ask() {
+    Alert.alert(
+      `Wipe all data for "${transport.name}"?`,
+      includeFleet
+        ? "Permanently deletes ALL loads, shortages, salaries, settlements, uploads, FASTag, maintenance, leaves, extra oil, meter readings and notifications — AND this transport's trucks & driver/manager logins. Master pumps and your account are kept. Cannot be undone."
+        : "Permanently deletes ALL loads, shortages, salaries, settlements, uploads, FASTag, maintenance, leaves, extra oil, meter readings and notifications for this transport. Trucks, drivers, master pumps and your account are kept. Cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Wipe data", style: "destructive", onPress: doWipe },
+      ]
+    );
+  }
+  async function doWipe() {
+    setBusy(true);
+    try {
+      const d = await wipeTransport(transport.id, includeFleet);
+      Alert.alert("Fresh start done", `Removed ${d.total} record(s).`);
+      onWiped && onWiped();
+    } catch (e) { Alert.alert("Error", String(e.message || e)); } finally { setBusy(false); }
+  }
+  return (
+    <Card style={{ marginTop: S.md, borderWidth: 1, borderColor: "rgba(225,29,72,0.3)", backgroundColor: "rgba(225,29,72,0.03)" }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
+        <MaterialCommunityIcons name="alert-octagon" size={20} color={C.red} />
+        <Text style={{ fontSize: 16, fontWeight: "800", color: C.red }}>Danger zone — fresh start</Text>
       </View>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 }}>
-        <View style={[s.inputWrap, { flex: 1, marginBottom: 0 }]}>
-          <MaterialCommunityIcons name="food" size={18} color={C.faint} />
-          <TextInput style={s.input} value={meal} onChangeText={setMeal} keyboardType="numeric" placeholder="₹/trip meal" placeholderTextColor={C.faint} />
-        </View>
-        <AppButton title={busy ? "…" : "Save"} icon="content-save" onPress={save} disabled={busy} />
-      </View>
+      <Text style={s.fieldHint}>Tested with random PDFs? Wipe all of this transport's data and start clean. Master pumps and your login are never touched; other owners are unaffected.</Text>
+      <TouchableOpacity onPress={() => setIncludeFleet((v) => !v)} style={{ flexDirection: "row", alignItems: "center", gap: 8, marginVertical: 8 }}>
+        <MaterialCommunityIcons name={includeFleet ? "checkbox-marked" : "checkbox-blank-outline"} size={20} color={includeFleet ? C.red : C.faint} />
+        <Text style={{ color: C.ink, fontSize: 14 }}>Also remove trucks & driver/manager logins</Text>
+      </TouchableOpacity>
+      <AppButton title={busy ? "Wiping…" : "Wipe my data"} icon="trash-can-outline" variant="danger" onPress={ask} disabled={busy} />
     </Card>
   );
 }
@@ -1809,7 +1912,7 @@ function LedgerRow({ l }) {
       <View style={s.rowIcon}><MaterialCommunityIcons name="gas-station" size={20} color={C.green} /></View>
       <View style={{ flex: 1 }}>
         <Text style={s.rowTitle} numberOfLines={1}>{l.roName || l.cmsCode || "—"}{!l.hasInvoice ? "  ⚠" : ""}</Text>
-        <Text style={s.rowMeta} numberOfLines={1}>#{l.cmsCode || "—"} · inv {l.invoiceNumber || "—"}{!l.hasInvoice ? " (pending)" : ""} · {l.deliveredQtyL || 0}L · short {l.shortageL || 0}L</Text>
+        <Text style={s.rowMeta} numberOfLines={1}>{fmtDay(l.invoiceDate || l.loadDate)} · inv {l.invoiceNumber || "—"}{!l.hasInvoice ? " (pending)" : ""} · {l.deliveredQtyL || 0}L · short {l.shortageL || 0}L</Text>
         <Text style={s.rowMeta} numberOfLines={1}>
           <MaterialCommunityIcons name="truck" size={11} color={C.faint} /> {l.truckReg || "—"}
           {"  "}<MaterialCommunityIcons name="account" size={11} color={C.faint} /> {l.driverName || "—"} · RTKM {l.rtkm || 0}
@@ -1818,6 +1921,7 @@ function LedgerRow({ l }) {
       <View style={{ alignItems: "flex-end" }}>
         <Text style={[s.rowRight, { color: settled ? C.green : C.ink, fontSize: 13 }]}>{rupee(l.freightAmount)}</Text>
         <Text style={[s.rowMeta, settled && { color: C.green }]}>{settled ? `net ${rupee(l.netReceived)}` : "pending"}</Text>
+        {settled && l.paidDate ? <Text style={s.rowMeta}>settled {fmtDay(l.paidDate)}</Text> : null}
       </View>
     </View>
   );

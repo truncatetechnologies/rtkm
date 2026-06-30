@@ -49,7 +49,12 @@ async function gapi(path, accessToken) {
   const r = await fetch("https://gmail.googleapis.com/gmail/v1/users/me" + path, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
-  if (!r.ok) throw new Error(`Gmail API ${r.status}`);
+  if (!r.ok) {
+    // Surface Google's actual reason so 403s are diagnosable (insufficient scope vs API disabled).
+    let detail = "";
+    try { const j = await r.json(); detail = j?.error?.message || j?.error?.errors?.[0]?.message || ""; } catch { /* ignore */ }
+    throw new Error(`Gmail API ${r.status}${detail ? `: ${detail}` : ""}`);
+  }
   return r.json();
 }
 
@@ -100,4 +105,30 @@ export async function listPdfAttachments(accessToken, query, maxMessages = 250) 
 export async function getAttachment(accessToken, messageId, attachmentId) {
   const a = await gapi(`/messages/${messageId}/attachments/${attachmentId}`, accessToken);
   return Buffer.from(a.data, "base64url"); // Gmail returns base64url
+}
+
+// Fast list of matching message IDs only (one paginated list call, no per-message fetch).
+// Returned OLDEST-FIRST so the caller imports invoices before the payment advices that follow them.
+export async function listMessageIds(accessToken, query, maxMessages = 500) {
+  const q = query || "has:attachment filename:pdf newer_than:365d";
+  const ids = [];
+  let pageToken = "";
+  do {
+    const list = await gapi(`/messages?q=${encodeURIComponent(q)}&maxResults=100${pageToken ? `&pageToken=${pageToken}` : ""}`, accessToken);
+    (list.messages || []).forEach((m) => ids.push(m.id));
+    pageToken = list.nextPageToken || "";
+  } while (pageToken && ids.length < maxMessages);
+  return ids.slice(0, maxMessages).reverse(); // Gmail returns newest-first → flip to oldest-first
+}
+
+// PDF attachment parts of a single message: [{ attachmentId, filename }], + the sender.
+export async function getMessagePdfParts(accessToken, messageId) {
+  const msg = await gapi(`/messages/${messageId}?format=full`, accessToken);
+  const out = [];
+  for (const p of flattenParts(msg.payload)) {
+    if (p.filename && /\.pdf$/i.test(p.filename) && p.body?.attachmentId) {
+      out.push({ attachmentId: p.body.attachmentId, filename: p.filename });
+    }
+  }
+  return { parts: out, from: header(msg.payload, "from") };
 }

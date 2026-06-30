@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { dbConnect } from "@/lib/mongoose";
 import { Load, toLoad, Truck, User } from "@/lib/models";
 import { resolveScope } from "@/lib/api/scope";
+import { fastagPerShipment } from "@/lib/services/fastag";
 
 // GET /api/ledger?transportId=&status= — freight loads + settlement summary.
 export async function GET(request) {
@@ -14,7 +15,18 @@ export async function GET(request) {
   const company = searchParams.get("company");
   const companyFilter = company && company !== "all" ? { company } : {};
 
-  const filter = { transportId: scope.transportId, ...companyFilter };
+  // Optional date range (by delivery/load date) — the dashboard passes the selected period so the
+  // settlement/collection cards follow the same filter as the spend tiles. The ledger page omits it.
+  const from = searchParams.get("from");
+  const to = searchParams.get("to");
+  const dateFilter = {};
+  if (from || to) {
+    dateFilter.loadDate = {};
+    if (from) dateFilter.loadDate.$gte = new Date(from);
+    if (to) dateFilter.loadDate.$lte = new Date(to);
+  }
+
+  const filter = { transportId: scope.transportId, ...companyFilter, ...dateFilter };
   const status = searchParams.get("status");
   if (status === "pending" || status === "settled") filter.settlementStatus = status;
 
@@ -43,7 +55,7 @@ export async function GET(request) {
     return o;
   };
 
-  const all = await Load.find({ transportId: scope.transportId, ...companyFilter });
+  const all = await Load.find({ transportId: scope.transportId, ...companyFilter, ...dateFilter });
   const sum = (f) => all.reduce((s, l) => s + (l[f] || 0), 0);
   const pendingFreight = all.filter((l) => l.settlementStatus !== "settled").reduce((s, l) => s + (l.freightAmount || 0), 0);
   const summary = {
@@ -60,5 +72,8 @@ export async function GET(request) {
     pending: all.filter((l) => l.settlementStatus !== "settled").length,
   };
 
-  return NextResponse.json({ loads: loads.map(enrich), summary });
+  // Per-trip FASTag tolls, attributed by date + tanker (no direct load↔toll link exists).
+  const fastagByShipment = await fastagPerShipment(scope.transportId, all);
+
+  return NextResponse.json({ loads: loads.map(enrich), summary, fastagByShipment });
 }
