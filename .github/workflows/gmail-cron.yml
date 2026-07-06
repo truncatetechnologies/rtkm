@@ -1,0 +1,33 @@
+name: Gmail depot-mail scan
+
+# Free alternative to Vercel Cron (Hobby plan only allows daily crons). This pings the app's
+# scan endpoint every ~15 minutes so new gate-in / document-expiry / PDF mails raise push
+# notifications even when the app is closed.
+#
+# Setup — add two repository secrets (Settings → Secrets and variables → Actions):
+#   APP_URL      = https://<your-app>.vercel.app     (no trailing slash)
+#   CRON_SECRET  = same value as the CRON_SECRET env var in Vercel
+# Until both are set, each run no-ops cleanly (no failure noise).
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # every 15 minutes (GitHub Actions minimum is 5)
+  workflow_dispatch: {}        # lets you run it manually from the Actions tab
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Gmail scan
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$APP_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "APP_URL / CRON_SECRET not set yet — skipping."
+            exit 0
+          fi
+          curl -fsS -X POST "$APP_URL/api/cron/check-gmail" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            --max-time 60
+          echo "Scan triggered."

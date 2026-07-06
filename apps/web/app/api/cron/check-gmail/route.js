@@ -8,6 +8,9 @@ import { buildQuery, cleanSender } from "@/lib/services/gmailImport";
 import { syncGateIns } from "@/lib/services/gateIn";
 import { syncDocExpiry } from "@/lib/services/vehicleAlert";
 
+export const dynamic = "force-dynamic";
+export const maxDuration = 60; // allow up to 60s to scan inboxes (Vercel clamps to the plan's max)
+
 // GET/POST /api/cron/check-gmail  (header: Authorization: Bearer <CRON_SECRET>, or ?secret=)
 // Scans every connected Gmail inbox for new invoice/PDF attachments FROM THE CONFIGURED SENDERS only
 // and raises notifications (which fire OS push). Inboxes with no senders set are skipped so unrelated
