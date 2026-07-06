@@ -222,8 +222,8 @@ function DangerZone({ transport, onWiped }) {
     const ok = await confirm({
       title: `Wipe all data for "${transport.name}"?`,
       message: includeFleet
-        ? "This permanently deletes ALL loads, shortages, salaries, settlements, uploads, FASTag, maintenance, leaves, extra oil, meter readings and notifications — AND this transport's trucks & driver/manager logins. Master pumps and your owner account are kept. This cannot be undone."
-        : "This permanently deletes ALL loads, shortages, salaries, settlements, uploads, FASTag, maintenance, leaves, extra oil, meter readings and notifications for this transport. Your trucks, drivers, master pumps and account are kept. This cannot be undone.",
+        ? "This permanently deletes ALL loads, shortages, salaries, settlements, uploads, FASTag, maintenance, leaves, extra oil, meter readings, gate-in events, document alerts and notifications — AND this transport's trucks & driver/manager logins. Master pumps and your owner account are kept. This cannot be undone."
+        : "This permanently deletes ALL loads, shortages, salaries, settlements, uploads, FASTag, maintenance, leaves, extra oil, meter readings, gate-in events, document alerts and notifications for this transport. Your trucks, drivers, master pumps and account are kept. This cannot be undone.",
       confirmLabel: "Wipe data",
       danger: true,
     });

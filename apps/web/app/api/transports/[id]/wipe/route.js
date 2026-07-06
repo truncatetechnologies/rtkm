@@ -3,7 +3,7 @@ import { dbConnect } from "@/lib/mongoose";
 import {
   Transport, Load, Shortage, SalaryRecord, Settlement, Upload, Maintenance,
   Leave, ExtraOil, MeterReading, Notification, FastagTxn, FastagWalletTxn,
-  Expense, RtkmRequest, Truck, User,
+  Expense, RtkmRequest, GateIn, VehicleAlert, Truck, User,
 } from "@/lib/models";
 import { requireAuth } from "@/lib/auth/session";
 import { unauth } from "@/lib/api/scope";
@@ -33,6 +33,7 @@ export async function POST(request, { params }) {
     ["leaves", Leave], ["extraOil", ExtraOil], ["meterReadings", MeterReading],
     ["notifications", Notification], ["fastagTxns", FastagTxn],
     ["fastagWalletTxns", FastagWalletTxn], ["expenses", Expense], ["rtkmRequests", RtkmRequest],
+    ["gateIns", GateIn], ["vehicleAlerts", VehicleAlert],
   ];
 
   const deleted = {};

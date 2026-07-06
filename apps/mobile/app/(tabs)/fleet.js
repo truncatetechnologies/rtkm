@@ -1865,8 +1865,8 @@ function DangerCard({ transport, onWiped }) {
     Alert.alert(
       `Wipe all data for "${transport.name}"?`,
       includeFleet
-        ? "Permanently deletes ALL loads, shortages, salaries, settlements, uploads, FASTag, maintenance, leaves, extra oil, meter readings and notifications — AND this transport's trucks & driver/manager logins. Master pumps and your account are kept. Cannot be undone."
-        : "Permanently deletes ALL loads, shortages, salaries, settlements, uploads, FASTag, maintenance, leaves, extra oil, meter readings and notifications for this transport. Trucks, drivers, master pumps and your account are kept. Cannot be undone.",
+        ? "Permanently deletes ALL loads, shortages, salaries, settlements, uploads, FASTag, maintenance, leaves, extra oil, meter readings, gate-in events, document alerts and notifications — AND this transport's trucks & driver/manager logins. Master pumps and your account are kept. Cannot be undone."
+        : "Permanently deletes ALL loads, shortages, salaries, settlements, uploads, FASTag, maintenance, leaves, extra oil, meter readings, gate-in events, document alerts and notifications for this transport. Trucks, drivers, master pumps and your account are kept. Cannot be undone.",
       [
         { text: "Cancel", style: "cancel" },
         { text: "Wipe data", style: "destructive", onPress: doWipe },
