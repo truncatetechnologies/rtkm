@@ -7,7 +7,7 @@ import Typography from "@mui/material/Typography";
 import {
   LayoutDashboard, Building2, Truck, Users, UserCog, Package, AlertTriangle,
   Wrench, Wallet, LogOut, Calculator, ChevronDown, ChevronRight, Settings, Scale, BarChart3, History,
-  ChevronsLeft, ChevronsRight, Sparkles, Gauge, Toll,
+  ChevronsLeft, ChevronsRight, Sparkles, Gauge, Toll, Warehouse, AlertBell,
 } from "@/components/icons";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
@@ -26,6 +26,8 @@ const OPS_NAV = [
   { href: "/app/meter-readings", label: "Meter Readings", Icon: Gauge },
   { href: "/app/maintenance", label: "Maintenance", Icon: Wrench },
   { href: "/app/fastag", label: "FASTag / Tolls", Icon: Toll },
+  { href: "/app/gate-in", label: "Gate In", Icon: Warehouse },
+  { href: "/app/alerts", label: "Alerts", Icon: AlertBell },
   { href: "/app/salaries", label: "Salaries", Icon: Wallet, ownerOnly: true },
   { href: "/app/reports", label: "Reports", Icon: BarChart3 },
 ];

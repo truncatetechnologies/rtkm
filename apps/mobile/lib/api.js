@@ -139,6 +139,11 @@ export async function getProfitability(transportId) { return req(`/api/reports/p
 export async function getFastagReport(transportId, period) { return req(`/api/fastag/report?transportId=${transportId}${period ? `&period=${period}` : ""}`); }
 export async function uploadFastag(asset, transportId) { return uploadPdf("/api/fastag/upload", asset, transportId); }
 export async function markFastagCharge(id, status, note) { return req(`/api/fastag/charge/${id}`, { method: "POST", body: { status, note } }); }
+// ---- Depot Gate In (parsed from oil-company notification emails) ----
+export async function getGateIns(transportId) { return req(`/api/gate-in?transportId=${transportId}`); }
+export async function syncGateIns(transportId, days) { return req("/api/gate-in/sync", { method: "POST", body: { transportId, days }, timeout: 300000 }); }
+export async function getVehicleAlerts(transportId) { return req(`/api/vehicle-alerts?transportId=${transportId}`); }
+export async function syncVehicleAlerts(transportId, days) { return req("/api/vehicle-alerts/sync", { method: "POST", body: { transportId, days }, timeout: 300000 }); }
 
 // ---- Uploads history / undo ----
 export async function getUploads(transportId) { return (await req(`/api/uploads?transportId=${transportId}`)).uploads; }

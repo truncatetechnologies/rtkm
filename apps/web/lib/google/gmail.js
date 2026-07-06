@@ -121,6 +121,20 @@ export async function listMessageIds(accessToken, query, maxMessages = 500) {
   return ids.slice(0, maxMessages).reverse(); // Gmail returns newest-first → flip to oldest-first
 }
 
+// Full body TEXT of a message (for notification emails with no attachment, e.g. depot Gate-In).
+export async function getMessageText(accessToken, messageId) {
+  const msg = await gapi(`/messages/${messageId}?format=full`, accessToken);
+  const parts = flattenParts(msg.payload);
+  let text = "";
+  for (const p of parts) if (p.mimeType === "text/plain" && p.body?.data) text += Buffer.from(p.body.data, "base64url").toString("utf8") + "\n";
+  if (!text) for (const p of parts) if (p.mimeType === "text/html" && p.body?.data) text += Buffer.from(p.body.data, "base64url").toString("utf8").replace(/<[^>]+>/g, " ") + "\n";
+  if (!text && msg.payload?.body?.data) text = Buffer.from(msg.payload.body.data, "base64url").toString("utf8");
+  return {
+    subject: header(msg.payload, "subject"), from: header(msg.payload, "from"),
+    dateMs: parseInt(msg.internalDate || "0", 10) || null, snippet: msg.snippet || "", text,
+  };
+}
+
 // PDF attachment parts of a single message: [{ attachmentId, filename }], + the sender.
 export async function getMessagePdfParts(accessToken, messageId) {
   const msg = await gapi(`/messages/${messageId}?format=full`, accessToken);

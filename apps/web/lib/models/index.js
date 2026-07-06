@@ -18,3 +18,5 @@ export { PushSubscription } from "./pushSubscription";
 export { RtkmRequest, toRtkmRequest } from "./rtkmRequest";
 export { FastagTxn, toFastagTxn, FastagWalletTxn, toWalletTxn } from "./fastag";
 export { Settlement, toSettlement } from "./settlement";
+export { GateIn, toGateIn } from "./gateIn";
+export { VehicleAlert, toVehicleAlert } from "./vehicleAlert";

@@ -14,7 +14,7 @@ import {
   getExtraOil, addExtraOil, deleteExtraOil, getExtraOilReport, getCompanies,
   getMyMeterReadings, getMeterReadings, submitMyMeterReading, submitMeterReading,
   getNotifications, markNotificationsRead, checkNotifications, registerPush, getProfitability,
-  getFastagReport, uploadFastag, markFastagCharge,
+  getFastagReport, uploadFastag, markFastagCharge, getGateIns, syncGateIns, getVehicleAlerts, syncVehicleAlerts,
   registerAdminPush, getAdminTransports, getAdminTransport, getRtkmRequests, decideRtkmRequest, markAdminNotificationsRead,
 } from "../../lib/api";
 import { registerForPush } from "../../lib/push";
@@ -400,6 +400,8 @@ const OPS_TABS = [
   { key: "meterReadings", label: "Meter Readings", icon: "gauge" },
   { key: "maintenance", label: "Maintenance", icon: "wrench" },
   { key: "fastag", label: "FASTag / Tolls", icon: "boom-gate" },
+  { key: "gatein", label: "Gate In", icon: "warehouse" },
+  { key: "alerts", label: "Alerts", icon: "bell-alert" },
   { key: "salaries", label: "Salaries", icon: "cash" },
   { key: "reports", label: "Reports", icon: "chart-bar" },
 ];
@@ -511,6 +513,10 @@ function OwnerFleet({ user, onLogout }) {
   const [fastag, setFastag] = useState({ totals: {}, byTruck: [], byMonth: [], tolls: [], months: [], flags: [], topPlazas: [] });
   const [fastagPeriod, setFastagPeriod] = useState("");
   const [fastagBusy, setFastagBusy] = useState(false);
+  const [gateIn, setGateIn] = useState({ rows: [], total: 0, byDepot: [] });
+  const [gateInBusy, setGateInBusy] = useState(false);
+  const [alerts, setAlerts] = useState({ rows: [], total: 0 });
+  const [alertsBusy, setAlertsBusy] = useState(false);
   const [modal, setModal] = useState(null);
 
   useEffect(() => {
@@ -533,8 +539,26 @@ function OwnerFleet({ user, onLogout }) {
       getNotifications(tid).then(setNotifs).catch(() => {});
       getProfitability(tid).then(setProfit).catch(() => {});
       getFastagReport(tid, fastagPeriod).then(setFastag).catch(() => {});
+      getGateIns(tid).then(setGateIn).catch(() => {});
+      getVehicleAlerts(tid).then(setAlerts).catch(() => {});
     } catch {}
   }, [tid, range, company]);
+  async function syncGate() {
+    setGateInBusy(true);
+    try {
+      const r = await syncGateIns(tid, 365);
+      Alert.alert("Gate In synced", `Scanned ${r.scanned} email(s), ${r.created} new gate event(s) added.`);
+      getGateIns(tid).then(setGateIn).catch(() => {});
+    } catch (e) { Alert.alert("Error", String(e.message || e)); } finally { setGateInBusy(false); }
+  }
+  async function syncAlerts() {
+    setAlertsBusy(true);
+    try {
+      const r = await syncVehicleAlerts(tid, 365);
+      Alert.alert("Alerts synced", `Scanned ${r.scanned} email(s), ${r.created} new alert(s) added.`);
+      getVehicleAlerts(tid).then(setAlerts).catch(() => {});
+    } catch (e) { Alert.alert("Error", String(e.message || e)); } finally { setAlertsBusy(false); }
+  }
   async function pickFastag() {
     try {
       const res = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: true });
@@ -923,6 +947,45 @@ function OwnerFleet({ user, onLogout }) {
                     ))}
                   </>
                 )}
+              </View>
+            )}
+
+            {tab === "gatein" && (
+              <View style={{ marginTop: S.md }}>
+                <Text style={s.rowMeta}>Every time a tanker enters a depot, the oil company emails a "Gate In" notice. Sync pulls those from your connected Gmail.</Text>
+                <AppButton title={gateInBusy ? "Syncing…" : "Sync from Gmail"} icon="email-sync-outline" onPress={syncGate} loading={gateInBusy} style={{ marginTop: 10 }} />
+                <View style={{ flexDirection: "row", gap: 8, marginTop: S.md }}>
+                  <Tile label="Gate-in events" value={gateIn.total || 0} icon="warehouse" tone="blue" />
+                  <Tile label="Depots" value={(gateIn.byDepot || []).length} icon="warehouse" tone="green" />
+                </View>
+                <Text style={[s.section, { marginTop: S.lg }]}>Gate events</Text>
+                {(gateIn.rows || []).length === 0 ? <Text style={s.rowMeta}>No gate events yet — tap "Sync from Gmail".</Text> :
+                  gateIn.rows.map((r) => (
+                    <ListRow key={r.id} icon={r.direction === "out" ? "logout" : "login"}
+                      title={`${r.vehicleNo || "—"} · ${r.depot || "—"}`}
+                      meta={`${r.gateAt ? new Date(r.gateAt).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : ""}${r.company ? " · " + r.company : ""}`}
+                      right={r.direction === "out" ? "Gate Out" : "Gate In"} rightTone={r.direction === "out" ? "amber" : "green"} />
+                  ))}
+              </View>
+            )}
+
+            {tab === "alerts" && (
+              <View style={{ marginTop: S.md }}>
+                <Text style={s.rowMeta}>Depot mails warn you before a tanker's document (permit / fitness / insurance) expires, or it gets blocked for loading. Sync pulls these from Gmail; you also get a phone push when one arrives.</Text>
+                <AppButton title={alertsBusy ? "Syncing…" : "Sync from Gmail"} icon="email-sync-outline" onPress={syncAlerts} loading={alertsBusy} style={{ marginTop: 10 }} />
+                <Text style={[s.section, { marginTop: S.lg }]}>Document expiries</Text>
+                {(alerts.rows || []).length === 0 ? <Text style={s.rowMeta}>No alerts yet — tap "Sync from Gmail".</Text> :
+                  alerts.rows.map((r) => {
+                    const n = r.expiryDate ? Math.ceil((new Date(r.expiryDate).getTime() - Date.now()) / 86400000) : null;
+                    const status = n == null ? "—" : n < 0 ? `expired ${Math.abs(n)}d` : `${n}d left`;
+                    const tone = n == null ? undefined : n < 0 ? "red" : n <= 15 ? "amber" : "green";
+                    return (
+                      <ListRow key={r.id} icon="file-certificate"
+                        title={`${r.vehicleNo || "—"} · ${r.certificate || ""}`}
+                        meta={`Expires ${r.expiryDate ? new Date(r.expiryDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}`}
+                        right={status} rightTone={tone} />
+                    );
+                  })}
               </View>
             )}
 

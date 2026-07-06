@@ -5,6 +5,8 @@ import { forwardRef } from "react";
 import WarningAmber from "@mui/icons-material/WarningAmber";
 import NotificationsNone from "@mui/icons-material/NotificationsNone";
 import TollMui from "@mui/icons-material/Toll";
+import WarehouseMui from "@mui/icons-material/Warehouse";
+import NotificationsActiveMui from "@mui/icons-material/NotificationsActive";
 import Block from "@mui/icons-material/Block";
 import BarChart from "@mui/icons-material/BarChart";
 import Business from "@mui/icons-material/Business";
@@ -72,6 +74,8 @@ function ic(MuiIcon) {
 export const AlertTriangle = ic(WarningAmber);
 export const Bell = ic(NotificationsNone);
 export const Toll = ic(TollMui);
+export const Warehouse = ic(WarehouseMui);
+export const AlertBell = ic(NotificationsActiveMui);
 export const Ban = ic(Block);
 export const BarChart3 = ic(BarChart);
 export const Building2 = ic(Business);
