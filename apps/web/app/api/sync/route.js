@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { dbConnect } from "@/lib/mongoose";
 import { Pump, toClient } from "@/lib/models";
 
+// Public GET that reads the DB — never statically prerender it (the Vercel build has no DB,
+// so a static export would run dbConnect() at build time and fail).
+export const dynamic = "force-dynamic";
+
 // GET /api/sync?since=<ISO timestamp>
 // Returns all pumps changed since `since` (including soft-deleted ones),
 // so the mobile app can incrementally update its local cache.

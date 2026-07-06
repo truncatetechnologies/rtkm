@@ -5,6 +5,9 @@ import { verifyMobileToken } from "@/lib/mobileAuth";
 import { exchangeCode, getUserEmail } from "@/lib/google/gmail";
 import { encryptSecret } from "@/lib/crypto";
 
+// OAuth redirect that hits the DB — must run at request time, never statically prerendered.
+export const dynamic = "force-dynamic";
+
 // GET /api/integrations/gmail/callback — Google redirects here after consent.
 export async function GET(request) {
   const { searchParams, origin } = new URL(request.url);
