@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useApp } from "@/lib/appContext";
 import { api } from "@/lib/clientApi";
 import { useApi } from "@/lib/useApi";
-import { Card, Button, Modal, Field, Input, Select, Badge, IconButton, useConfirm } from "@/components/ui";
+import { Card, Button, Modal, Field, Input, Select, Badge, IconButton, useConfirm, PageLoader } from "@/components/ui";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { Plus, Pencil, Trash2 } from "@/components/icons";
@@ -12,7 +12,7 @@ const EMPTY = { type: "tanker", name: "", registrationNo: "", capacity: "", aver
 
 export default function Trucks() {
   const { activeId } = useApp();
-  const { data: trucksData, mutate: mutateTrucks } = useApi(activeId ? `/api/trucks?transportId=${activeId}` : null);
+  const { data: trucksData, mutate: mutateTrucks, isLoading: loadingTrucks } = useApi(activeId ? `/api/trucks?transportId=${activeId}` : null);
   const { data: driversData } = useApi(activeId ? `/api/members?transportId=${activeId}&role=driver` : null);
   const trucks = trucksData?.trucks || [];
   const drivers = driversData?.members || [];
@@ -36,6 +36,7 @@ export default function Trucks() {
   const driverName = (id) => drivers.find((d) => d.id === id)?.name || "—";
 
   if (!activeId) return <Card>Select or create a transport first.</Card>;
+  if (loadingTrucks && !trucksData) return <PageLoader label="Loading trucks…" />;
 
   return (
     <Box>

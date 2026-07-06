@@ -4,7 +4,7 @@ import { useSWRConfig } from "swr";
 import { useApp } from "@/lib/appContext";
 import { api } from "@/lib/clientApi";
 import { useApi } from "@/lib/useApi";
-import { Card, Table, Td, Tr, Badge, IconButton, useConfirm } from "@/components/ui";
+import { Card, Table, Td, Tr, Badge, IconButton, useConfirm, PageLoader } from "@/components/ui";
 import { Box, Typography } from "@mui/material";
 import { Undo2, FileText, FileSpreadsheet, Landmark } from "@/components/icons";
 
@@ -17,12 +17,13 @@ const KIND = {
 export default function Uploads() {
   const { activeId } = useApp();
   const { mutate } = useSWRConfig();
-  const { data: uploadsData } = useApi(activeId ? `/api/uploads?transportId=${activeId}` : null);
+  const { data: uploadsData, isLoading } = useApi(activeId ? `/api/uploads?transportId=${activeId}` : null);
   const rows = uploadsData?.uploads || [];
   const [msg, setMsg] = useState("");
   const { confirm, ConfirmModal } = useConfirm();
 
   if (!activeId) return <Card>Select or create a transport first.</Card>;
+  if (isLoading && !uploadsData) return <PageLoader label="Loading uploads…" />;
 
   async function undo(u) {
     const ok = await confirm({

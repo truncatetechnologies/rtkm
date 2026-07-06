@@ -9,7 +9,7 @@ import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import { useApp } from "@/lib/appContext";
 import { useApi } from "@/lib/useApi";
-import { Tile, RingStat, Card, Table, Td, Tr, Button, Badge, rupee } from "@/components/ui";
+import { Tile, RingStat, Card, Table, Td, Tr, Button, Badge, rupee, PageLoader } from "@/components/ui";
 import { Truck, Users, Package, Wallet, Fuel, Wrench, AlertTriangle, Scale, BarChart3, CalendarDays } from "@/components/icons";
 import { DatePicker } from "@/components/DatePicker";
 import { DriverHome } from "./_driver";
@@ -129,6 +129,7 @@ function OwnerOverview({ activeId, company = "all" }) {
   const loading = isLoading;
 
   if (!activeId) return <Card>Create a transport first to see your dashboard. <Box component={Link} href="/app/transports" sx={{ color: "info.main", textDecoration: "underline" }}>Add transport →</Box></Card>;
+  if (isLoading && !s) return <PageLoader label="Loading dashboard…" />;
   const t = s?.totals || { fuel: 0, maintenance: 0, salaries: 0, mealAllowance: 0, total: 0, trips: 0, trucks: 0, drivers: 0, shortageL: 0, oilLiters: 0, extraOilL: 0, pendingInvoice: 0 };
   const L = led?.summary || { totalFreight: 0, totalReceived: 0, pendingFreight: 0, settled: 0, pending: 0, loads: 0, pendingInvoice: 0 };
 

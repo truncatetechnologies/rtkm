@@ -2,13 +2,13 @@
 import { useState } from "react";
 import { useApi } from "@/lib/useApi";
 import { api } from "@/lib/clientApi";
-import { Card, Table, Td, Tr, Badge, Button } from "@/components/ui";
+import { Card, Table, Td, Tr, Badge, Button, PageLoader } from "@/components/ui";
 import { Box, Typography } from "@mui/material";
 import { Gauge } from "@/components/icons";
 
 export default function Approvals() {
   const [status, setStatus] = useState("pending");
-  const { data, mutate } = useApi(`/api/admin/rtkm-requests?status=${status}`);
+  const { data, mutate, isLoading } = useApi(`/api/admin/rtkm-requests?status=${status}`);
   const rows = data?.requests || [];
   const [busy, setBusy] = useState("");
 
@@ -17,6 +17,8 @@ export default function Approvals() {
     try { await api(`/api/admin/rtkm-requests/${id}`, { method: "POST", body: { action } }); mutate(); }
     finally { setBusy(""); }
   }
+
+  if (isLoading && !data) return <PageLoader label="Loading approvals…" />;
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>

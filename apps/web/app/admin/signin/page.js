@@ -17,12 +17,17 @@ export default function SignIn() {
 
   useEffect(() => { if (isAdmin) router.replace("/admin"); }, [isAdmin, router]);
 
+  const phone = form.phone.trim(), pin = form.pin.trim();
+  const canSubmit = phone.length >= 10 && pin.length >= 4;
+
   async function submit(e) {
     e?.preventDefault?.();
     if (busy) return;
+    if (phone.length < 10) { setErr("Enter a valid 10-digit phone number."); return; }
+    if (pin.length < 4) { setErr("Enter your PIN (at least 4 digits)."); return; }
     setBusy(true); setErr("");
     try {
-      const res = await fetch("/api/auth/owner/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+      const res = await fetch("/api/auth/owner/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone, pin }) });
       const data = await res.json();
       if (!res.ok) { setErr(data.error || "Invalid phone or PIN"); return; }
       if (data.user?.role !== "admin") { setErr("This account is not an admin."); return; }
@@ -73,7 +78,7 @@ export default function SignIn() {
               </Box>
             )}
 
-            <Box component="button" type="submit" disabled={busy}
+            <Box component="button" type="submit" disabled={busy || !canSubmit}
               sx={{ mt: 1, width: "100%", border: "none", borderRadius: 3, bgcolor: "primary.main", py: 1.5, fontWeight: 700, color: "#fff", fontSize: 16, cursor: "pointer", boxShadow: "0 8px 20px -8px rgba(79,70,229,0.55)", "&:hover": { bgcolor: "primary.dark" }, "&:disabled": { opacity: 0.55 } }}>
               {busy ? "Please wait…" : "Log in"}
             </Box>

@@ -3,13 +3,13 @@ import { useState } from "react";
 import { useApp } from "@/lib/appContext";
 import { api } from "@/lib/clientApi";
 import { useApi } from "@/lib/useApi";
-import { Card, Button, Modal, Field, Input, Table, Td, Tr, Badge, IconButton, useConfirm } from "@/components/ui";
+import { Card, Button, Modal, Field, Input, Table, Td, Tr, Badge, IconButton, useConfirm, PageLoader } from "@/components/ui";
 import { Box } from "@mui/material";
 import { Plus, Trash2 } from "@/components/icons";
 
 export default function Managers() {
   const { activeId } = useApp();
-  const { data: managersData, mutate: mutateManagers } = useApi(activeId ? `/api/members?transportId=${activeId}&role=manager` : null);
+  const { data: managersData, mutate: mutateManagers, isLoading } = useApi(activeId ? `/api/members?transportId=${activeId}&role=manager` : null);
   const managers = managersData?.members || [];
   const [editing, setEditing] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -28,6 +28,7 @@ export default function Managers() {
   }
 
   if (!activeId) return <Card>Select or create a transport first.</Card>;
+  if (isLoading && !managersData) return <PageLoader label="Loading managers…" />;
 
   return (
     <Box>

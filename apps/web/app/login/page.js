@@ -22,13 +22,20 @@ export default function OwnerLogin() {
   const [err, setErr] = useState("");
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
+  const name = form.name.trim(), phone = form.phone.trim(), pin = form.pin.trim();
+  const canSubmit = phone.length >= 10 && pin.length >= 4 && (mode === "login" || name.length >= 2);
+
   async function submit(e) {
     e?.preventDefault?.();
     if (busy) return;
+    // Required-field validation before hitting the server.
+    if (mode === "register" && name.length < 2) { setErr("Please enter your name."); return; }
+    if (phone.length < 10) { setErr("Enter a valid 10-digit phone number."); return; }
+    if (pin.length < 4) { setErr("Enter your PIN (at least 4 digits)."); return; }
     setBusy(true); setErr("");
     const url = mode === "login" ? "/api/auth/owner/login" : "/api/auth/owner/register";
     try {
-      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, phone, pin }) });
       const data = await res.json();
       if (!res.ok) { setErr(data.error || "Something went wrong. Try again."); return; }
       router.push(data.user?.role === "admin" ? "/admin" : "/app");
@@ -206,7 +213,7 @@ export default function OwnerLogin() {
 
               <Button
                 type="submit"
-                disabled={busy}
+                disabled={busy || !canSubmit}
                 variant="contained"
                 disableElevation
                 endIcon={!busy ? <ChevronRight size={18} color="#fff" /> : undefined}

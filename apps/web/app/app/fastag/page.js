@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 import { useApp } from "@/lib/appContext";
 import { useApi } from "@/lib/useApi";
 import { uploadPdf, api } from "@/lib/clientApi";
-import { Card, Table, Td, Tr, Badge, Tile, Button, Input, rupee } from "@/components/ui";
+import { Card, Table, Td, Tr, Badge, Tile, Button, Input, rupee, PageLoader } from "@/components/ui";
 import { Box, Typography } from "@mui/material";
 import { Toll, Wallet, TrendingDown, AlertTriangle, UploadCloud, CheckCircle2, Ban } from "@/components/icons";
 
@@ -15,12 +15,13 @@ export default function Fastag() {
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
-  const { data, mutate } = useApi(activeId ? `/api/fastag/report?transportId=${activeId}${period ? `&period=${period}` : ""}` : null);
+  const { data, mutate, isLoading } = useApi(activeId ? `/api/fastag/report?transportId=${activeId}${period ? `&period=${period}` : ""}` : null);
   const d = data || { months: [], totals: {}, byTruck: [], byMonth: [], tolls: [], flags: [], topPlazas: [] };
   const t = d.totals || {};
   const fmtDate = (x) => (x ? new Date(x).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit", timeZone: "UTC" }) : "—");
 
   if (!activeId) return <Card>Select or create a transport first.</Card>;
+  if (isLoading && !data) return <PageLoader label="Loading FASTag…" />;
 
   async function onFiles(list) {
     const files = Array.from(list || []).filter((f) => f.name.toLowerCase().endsWith(".pdf"));

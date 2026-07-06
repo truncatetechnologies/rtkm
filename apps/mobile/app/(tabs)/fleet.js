@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert, Modal, Image } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert, Modal, Image, ActivityIndicator } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { getUser, setToken, setUser, getServerUrl, getToken } from "../../lib/config";
@@ -200,10 +200,15 @@ function AuthScreen({ onAuthed }) {
   const [showPin, setShowPin] = useState(false);
   const [busy, setBusy] = useState(false);
   const set = (k) => (v) => setF({ ...f, [k]: v });
+  const name = (f.name || "").trim(), phone = (f.phone || "").trim(), pin = (f.pin || "").trim();
+  const canSubmit = phone.length >= 10 && pin.length >= 4 && (mode === "login" || name.length >= 2);
   async function submit() {
+    if (mode === "register" && name.length < 2) return Alert.alert("Name required", "Please enter your name / company.");
+    if (phone.length < 10) return Alert.alert("Phone required", "Enter a valid 10-digit phone number.");
+    if (pin.length < 4) return Alert.alert("PIN required", "Enter your PIN (at least 4 digits).");
     setBusy(true);
     try {
-      const data = mode === "login" ? await login({ phone: f.phone, pin: f.pin }) : await ownerRegister(f);
+      const data = mode === "login" ? await login({ phone, pin }) : await ownerRegister({ name, phone, pin });
       await setToken(data.token); await setUser(data.user); onAuthed(data.user);
     } catch (e) { Alert.alert("Error", String(e.message || e)); } finally { setBusy(false); }
   }
@@ -234,7 +239,7 @@ function AuthScreen({ onAuthed }) {
               <Text style={s.authShow}>{showPin ? "Hide" : "Show"}</Text>
             </TouchableOpacity>
           </View>
-          <AppButton title={mode === "login" ? "Log in" : "Create owner account"} icon="login" onPress={submit} loading={busy} style={{ marginTop: 6 }} />
+          <AppButton title={mode === "login" ? "Log in" : "Create owner account"} icon="login" onPress={submit} loading={busy} disabled={!canSubmit} style={{ marginTop: 6 }} />
           {mode === "register" && <Text style={s.authNote}>Only transport owners self-register. Managers & drivers are added by the owner.</Text>}
         </Card>
         <View style={s.authFeatures}>
@@ -517,6 +522,7 @@ function OwnerFleet({ user, onLogout }) {
   const [gateInBusy, setGateInBusy] = useState(false);
   const [alerts, setAlerts] = useState({ rows: [], total: 0 });
   const [alertsBusy, setAlertsBusy] = useState(false);
+  const [firstLoad, setFirstLoad] = useState(true); // show a spinner until the first data load finishes
   const [modal, setModal] = useState(null);
 
   useEffect(() => {
@@ -541,7 +547,7 @@ function OwnerFleet({ user, onLogout }) {
       getFastagReport(tid, fastagPeriod).then(setFastag).catch(() => {});
       getGateIns(tid).then(setGateIn).catch(() => {});
       getVehicleAlerts(tid).then(setAlerts).catch(() => {});
-    } catch {}
+    } catch {} finally { setFirstLoad(false); }
   }, [tid, range, company]);
   async function syncGate() {
     setGateInBusy(true);
@@ -645,6 +651,11 @@ function OwnerFleet({ user, onLogout }) {
         )}
         {!tid ? (
           <EmptyState icon="domain" text="No transport yet. Create one on the web dashboard." />
+        ) : firstLoad ? (
+          <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 80, gap: 12 }}>
+            <ActivityIndicator size="large" color={C.green} />
+            <Text style={s.rowMeta}>Loading your fleet…</Text>
+          </View>
         ) : (
           <>
             {companies.length >= 2 && (

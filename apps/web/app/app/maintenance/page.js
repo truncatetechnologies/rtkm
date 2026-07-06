@@ -3,14 +3,14 @@ import { useState } from "react";
 import { useApp } from "@/lib/appContext";
 import { api } from "@/lib/clientApi";
 import { useApi } from "@/lib/useApi";
-import { Card, Button, Modal, Field, Input, Select, Table, Td, Tr, rupee, IconButton, useConfirm } from "@/components/ui";
+import { Card, Button, Modal, Field, Input, Select, Table, Td, Tr, rupee, IconButton, useConfirm, PageLoader } from "@/components/ui";
 import Box from "@mui/material/Box";
 import { DatePicker } from "@/components/DatePicker";
 import { Plus, Trash2 } from "@/components/icons";
 
 export default function MaintenancePage() {
   const { activeId } = useApp();
-  const { data: maintenanceData, mutate: mutateItems } = useApi(activeId ? `/api/maintenance?transportId=${activeId}` : null);
+  const { data: maintenanceData, mutate: mutateItems, isLoading } = useApi(activeId ? `/api/maintenance?transportId=${activeId}` : null);
   const { data: trucksData } = useApi(activeId ? `/api/trucks?transportId=${activeId}` : null);
   const items = maintenanceData?.maintenance || [];
   const trucks = trucksData?.trucks || [];
@@ -32,6 +32,7 @@ export default function MaintenancePage() {
   const truckName = (id) => trucks.find((t) => t.id === id)?.name || trucks.find((t) => t.id === id)?.registrationNo || "—";
 
   if (!activeId) return <Card>Select or create a transport first.</Card>;
+  if (isLoading && !maintenanceData) return <PageLoader label="Loading maintenance…" />;
 
   return (
     <Box>

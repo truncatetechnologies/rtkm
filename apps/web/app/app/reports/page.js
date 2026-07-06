@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useApp } from "@/lib/appContext";
 import { useApi } from "@/lib/useApi";
-import { Card, Table, Td, Tr, Badge, Tile, Button, rupee } from "@/components/ui";
+import { Card, Table, Td, Tr, Badge, Tile, Button, rupee, PageLoader } from "@/components/ui";
 import { Box, Typography } from "@mui/material";
 import { IndianRupee, Wallet, Clock, TrendingDown, AlertTriangle, Fuel, Truck } from "@/components/icons";
 
@@ -114,11 +114,13 @@ function ExtraOilReport({ activeId }) {
 
 function Settlement({ activeId }) {
   const { activeCompany = "all" } = useApp();
-  const { data: ledgerData } = useApi(activeId ? `/api/ledger?transportId=${activeId}&company=${activeCompany}` : null);
+  const { data: ledgerData, isLoading: loadingLedger } = useApi(activeId ? `/api/ledger?transportId=${activeId}&company=${activeCompany}` : null);
   const data = ledgerData || { loads: [], summary: {} };
   const [shortOnly, setShortOnly] = useState(false);
 
   const s = data.summary || {};
+
+  if (loadingLedger && !ledgerData) return <PageLoader label="Loading reports…" />;
 
   const rows = data.loads
     .map((l) => ({ ...l, cut: (l.nayaraShortageDeduction || 0) + (l.otherDeduction || 0), gap: (l.freightAmount || 0) - (l.netReceived || 0) }))

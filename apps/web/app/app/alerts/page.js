@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useApp } from "@/lib/appContext";
 import { api } from "@/lib/clientApi";
 import { useApi } from "@/lib/useApi";
-import { Card, Table, Td, Tr, Badge, Tile, Button, Select } from "@/components/ui";
+import { Card, Table, Td, Tr, Badge, Tile, Button, Select, PageLoader } from "@/components/ui";
 import { Box, Typography } from "@mui/material";
 import { AlertBell, Mail, CheckCircle2, AlertTriangle } from "@/components/icons";
 
@@ -27,6 +27,7 @@ export default function AlertsPage() {
   const [msg, setMsg] = useState("");
 
   if (!activeId) return <Card>Select or create a transport first.</Card>;
+  if (isLoading && !data) return <PageLoader label="Loading alerts…" />;
 
   async function sync() {
     setBusy(true); setMsg("");

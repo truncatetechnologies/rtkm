@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useApp } from "@/lib/appContext";
 import { api } from "@/lib/clientApi";
 import { useApi } from "@/lib/useApi";
-import { Card, Button, Modal, Field, Input, Table, Td, Tr, Badge, rupee, IconButton, useConfirm } from "@/components/ui";
+import { Card, Button, Modal, Field, Input, Table, Td, Tr, Badge, rupee, IconButton, useConfirm, PageLoader } from "@/components/ui";
 import { DatePicker } from "@/components/DatePicker";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -11,7 +11,7 @@ import { Plus, Pencil, Trash2 } from "@/components/icons";
 
 export default function Drivers() {
   const { activeId, me } = useApp();
-  const { data: driversData, mutate: mutateDrivers } = useApi(activeId ? `/api/members?transportId=${activeId}&role=driver` : null);
+  const { data: driversData, mutate: mutateDrivers, isLoading } = useApi(activeId ? `/api/members?transportId=${activeId}&role=driver` : null);
   const drivers = driversData?.members || [];
   const [editing, setEditing] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -37,6 +37,7 @@ export default function Drivers() {
   }
 
   if (!activeId) return <Card>Select or create a transport first.</Card>;
+  if (isLoading && !driversData) return <PageLoader label="Loading drivers…" />;
 
   return (
     <Box>

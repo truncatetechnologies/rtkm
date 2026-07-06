@@ -2,13 +2,13 @@
 import { useApp } from "@/lib/appContext";
 import { api } from "@/lib/clientApi";
 import { useApi } from "@/lib/useApi";
-import { Card, Table, Td, Tr, Badge, rupee, IconButton, useConfirm } from "@/components/ui";
+import { Card, Table, Td, Tr, Badge, rupee, IconButton, useConfirm, PageLoader } from "@/components/ui";
 import Box from "@mui/material/Box";
 import { Trash2, Fuel } from "@/components/icons";
 
 export default function Loads() {
   const { activeId, activeCompany = "all" } = useApp();
-  const { data: loadsData, mutate: mutateLoads } = useApi(activeId ? `/api/loads?transportId=${activeId}&company=${activeCompany}` : null);
+  const { data: loadsData, mutate: mutateLoads, isLoading } = useApi(activeId ? `/api/loads?transportId=${activeId}&company=${activeCompany}` : null);
   const { data: driversData } = useApi(activeId ? `/api/members?transportId=${activeId}&role=driver` : null);
   const loads = loadsData?.loads || [];
   const drivers = driversData?.members || [];
@@ -21,6 +21,7 @@ export default function Loads() {
   const driverName = (id) => drivers.find((d) => d.id === id)?.name || "—";
 
   if (!activeId) return <Card>Select or create a transport first.</Card>;
+  if (isLoading && !loadsData) return <PageLoader label="Loading loads…" />;
 
   return (
     <Box>

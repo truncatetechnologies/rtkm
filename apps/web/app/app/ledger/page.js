@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useApp } from "@/lib/appContext";
 import { api } from "@/lib/clientApi";
-import { Card, Table, Td, Tr, Badge, Tile, Button, Modal, Field, Input, Select, IconButton, useConfirm, rupee } from "@/components/ui";
+import { Card, Table, Td, Tr, Badge, Tile, Button, Modal, Field, Input, Select, IconButton, useConfirm, rupee, PageLoader } from "@/components/ui";
 import { Box, Typography } from "@mui/material";
 import { Wallet, IndianRupee, TrendingDown, Clock, Fuel, Truck, Plus, Trash2, ChevronDown, ChevronRight, AlertTriangle, CheckCircle2, Toll } from "@/components/icons";
 
@@ -46,22 +46,28 @@ export default function Ledger() {
   const [data, setData] = useState({ loads: [], summary: null });
   const [extra, setExtra] = useState([]);
   const [filter, setFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
   const [extraFor, setExtraFor] = useState(null); // shipment group we're adding extra oil to
   const [helpOpen, setHelpOpen] = useState(false);
   const { confirm, ConfirmModal } = useConfirm();
 
   const load = useCallback(async () => {
     if (!activeId) return;
-    const q = filter === "all" ? "" : `&status=${filter}`;
-    const [led, ext] = await Promise.all([
-      api(`/api/ledger?transportId=${activeId}&company=${activeCompany}${q}`),
-      api(`/api/extra-oil?transportId=${activeId}`),
-    ]);
-    setData(led); setExtra(ext.extraOil || []);
+    setLoading(true);
+    try {
+      const q = filter === "all" ? "" : `&status=${filter}`;
+      const [led, ext] = await Promise.all([
+        api(`/api/ledger?transportId=${activeId}&company=${activeCompany}${q}`),
+        api(`/api/extra-oil?transportId=${activeId}`),
+      ]);
+      setData(led); setExtra(ext.extraOil || []);
+    } finally { setLoading(false); }
   }, [activeId, activeCompany, filter]);
   useEffect(() => { load(); }, [load]);
 
   if (!activeId) return <Card>Select or create a transport first.</Card>;
+  // First load (server can be slow on cold start) — show a clear loader instead of an empty page.
+  if (loading && !data.summary) return <PageLoader label="Loading statement of freight…" />;
   const s = data.summary || {};
   const groups = groupByShipment(data.loads, extra);
   const totalExtra = extra.reduce((sum, e) => sum + (e.litres || 0), 0);

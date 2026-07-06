@@ -4,6 +4,7 @@
 // Icons are MUI icons (from @/components/icons) passed as `Icon` props; they accept a `size` prop.
 import { useEffect, useState, useRef } from "react";
 import MuiButton from "@mui/material/Button";
+import CircularProgress from "@mui/material/CircularProgress";
 import Paper from "@mui/material/Paper";
 import TextField from "@mui/material/TextField";
 import Box from "@mui/material/Box";
@@ -83,6 +84,17 @@ export function Card({ className, glass = true, sx, children, ...props }) {
     <Paper elevation={0} className={className} sx={[{ p: 2.5, borderRadius: 4, boxShadow: "0 12px 32px -14px rgba(15,23,42,0.18)" }, ...(Array.isArray(sx) ? sx : [sx])]} {...props}>
       {children}
     </Paper>
+  );
+}
+
+// Centered loading state — shown on first data load so a slow server (Vercel cold start /
+// Atlas latency) never looks like an empty page.
+export function PageLoader({ label = "Loading…" }) {
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", py: 12, gap: 2 }}>
+      <CircularProgress size={34} thickness={4} />
+      <Typography sx={{ fontSize: 14, color: "text.secondary" }}>{label}</Typography>
+    </Box>
   );
 }
 
