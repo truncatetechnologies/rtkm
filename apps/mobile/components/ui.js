@@ -133,12 +133,16 @@ export function EmptyState({ icon = "inbox-outline", text }) {
 }
 
 // Gradient header with a glass right-slot.
-export function GradientHeader({ title, subtitle, icon, right }) {
+export function GradientHeader({ title, subtitle, icon, right, onBack }) {
   return (
     <LinearGradient colors={[C.gradFrom, C.gradTo]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gh}>
       <View style={styles.ghRow}>
         <View style={{ flexDirection: "row", alignItems: "center", flex: 1, minWidth: 0 }}>
-          {icon ? <View style={styles.ghIcon}><MaterialCommunityIcons name={icon} size={22} color="#fff" /></View> : null}
+          {onBack ? (
+            <TouchableOpacity onPress={onBack} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={[styles.ghIcon, { backgroundColor: "rgba(255,255,255,0.18)" }]}>
+              <MaterialCommunityIcons name="arrow-left" size={22} color="#fff" />
+            </TouchableOpacity>
+          ) : icon ? <View style={styles.ghIcon}><MaterialCommunityIcons name={icon} size={22} color="#fff" /></View> : null}
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={styles.ghTitle} numberOfLines={1}>{title}</Text>
             {subtitle ? <Text style={styles.ghSub} numberOfLines={1}>{subtitle}</Text> : null}

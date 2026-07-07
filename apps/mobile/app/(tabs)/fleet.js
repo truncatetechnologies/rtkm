@@ -422,6 +422,26 @@ const SETUP_TABS = [
   { key: "uploads", label: "Uploads (Undo)", icon: "history" },
 ];
 const SETUP_KEYS = SETUP_TABS.map((t) => t.key);
+// Sections shown as a tappable bento MENU grid (replaces the hard-to-use chip row). "home" is the
+// dashboard; tapping a tile opens that section full-screen with a back button.
+const MENU = [
+  { key: "loads", label: "Loads", icon: "truck" },
+  { key: "ledger", label: "Statement Of Freight", icon: "clipboard-list" },
+  { key: "shortages", label: "Shortage Cuts", icon: "alert" },
+  { key: "fastag", label: "FASTag / Tolls", icon: "boom-gate" },
+  { key: "gatein", label: "Gate In", icon: "warehouse" },
+  { key: "alerts", label: "Alerts", icon: "bell-alert" },
+  { key: "meterReadings", label: "Meter Readings", icon: "gauge" },
+  { key: "maintenance", label: "Maintenance", icon: "wrench" },
+  { key: "salaries", label: "Salaries", icon: "cash" },
+  { key: "reports", label: "Reports", icon: "chart-bar" },
+  { key: "drivers", label: "Drivers", icon: "account-group" },
+  { key: "trucks", label: "Trucks / Tankers", icon: "dump-truck" },
+  { key: "managers", label: "Managers", icon: "account-tie" },
+  { key: "uploads", label: "Uploads (Undo)", icon: "history" },
+  { key: "settings", label: "Settings", icon: "cog" },
+];
+const SECTION_LABEL = Object.fromEntries([...OPS_TABS, ...MENU].map((t) => [t.key, t.label]));
 
 const EXTRA_REASONS = [
   ["breakdown", "Breakdown"],
@@ -497,7 +517,7 @@ function presetParams(key) {
 function OwnerFleet({ user, onLogout }) {
   const [transports, setTransports] = useState([]);
   const [tid, setTid] = useState(user.transportId || null);
-  const [tab, setTab] = useState("overview");
+  const [tab, setTab] = useState("home");
   const [range, setRange] = useState("all");
   const [spend, setSpend] = useState(null);
   const [loads, setLoads] = useState([]);
@@ -642,7 +662,11 @@ function OwnerFleet({ user, onLogout }) {
 
   return (
     <ScreenBg>
-      <GradientHeader title={user.name} subtitle={`Transport ${user.role}`} icon="truck-fast"
+      <GradientHeader
+        title={tab === "home" ? user.name : (SECTION_LABEL[tab] || "")}
+        subtitle={tab === "home" ? `Transport ${user.role}` : (activeTransport?.name || "")}
+        icon="truck-fast"
+        onBack={tab !== "home" ? () => setTab("home") : undefined}
         right={
           <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
             <TouchableOpacity onPress={openNotifs}>
@@ -680,21 +704,8 @@ function OwnerFleet({ user, onLogout }) {
                 </ScrollView>
               </View>
             )}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 4 }}>
-              {OPS_TABS.map((x) => (
-                <Chip key={x.key} label={x.label} icon={x.icon} active={tab === x.key} onPress={() => setTab(x.key)} />
-              ))}
-              <Chip label="Settings" icon="cog" active={SETUP_KEYS.includes(tab)} onPress={() => { if (!SETUP_KEYS.includes(tab)) setTab(SETUP_TABS[0].key); }} />
-            </ScrollView>
-            {SETUP_KEYS.includes(tab) && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingTop: 8, paddingBottom: 4 }}>
-                {SETUP_TABS.map((x) => (
-                  <Chip key={x.key} label={x.label} icon={x.icon} active={tab === x.key} onPress={() => setTab(x.key)} />
-                ))}
-              </ScrollView>
-            )}
 
-            {tab === "overview" && (
+            {tab === "home" && (
               <>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingTop: S.md }}>
                   {SPEND_RANGES.map((p) => (
@@ -742,13 +753,38 @@ function OwnerFleet({ user, onLogout }) {
                     </View>
                   );
                 })()}
-                {user.role === "owner" && activeTransport && (
-                  <OilAvgCard transport={activeTransport} onSaved={refresh} />
-                )}
-                {user.role === "owner" && activeTransport && (
-                  <DangerCard transport={activeTransport} onWiped={refresh} />
-                )}
+                {/* Bento MENU — tap a section (replaces the chip row) */}
+                <Text style={[s.section, { marginTop: S.lg }]}>Manage</Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+                  {MENU.map((m) => {
+                    const badge = m.key === "ledger" ? (t.pendingInvoice || 0)
+                      : m.key === "alerts" ? (alerts.total || 0)
+                      : m.key === "gatein" ? (gateIn.total || 0) : 0;
+                    return (
+                      <TouchableOpacity key={m.key} onPress={() => setTab(m.key)} activeOpacity={0.8} style={{ width: "48%" }}>
+                        <View style={[{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: C.card, borderRadius: R.lg, padding: 14 }, shadow]}>
+                          <LinearGradient colors={[C.gradFrom, C.gradTo]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" }}>
+                            <MaterialCommunityIcons name={m.icon} size={20} color="#fff" />
+                          </LinearGradient>
+                          <Text style={{ flex: 1, fontSize: 13, fontWeight: "700", color: C.ink }} numberOfLines={2}>{m.label}</Text>
+                          {badge > 0 ? (
+                            <View style={{ minWidth: 20, height: 20, paddingHorizontal: 5, borderRadius: 10, backgroundColor: C.amber, alignItems: "center", justifyContent: "center" }}>
+                              <Text style={{ color: "#fff", fontSize: 11, fontWeight: "800" }}>{badge > 99 ? "99+" : badge}</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </>
+            )}
+
+            {tab === "settings" && user.role === "owner" && activeTransport && (
+              <View style={{ marginTop: S.md }}>
+                <OilAvgCard transport={activeTransport} onSaved={refresh} />
+                <DangerCard transport={activeTransport} onWiped={refresh} />
+              </View>
             )}
 
             {tab === "loads" && (
