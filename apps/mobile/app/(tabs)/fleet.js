@@ -278,14 +278,16 @@ function DriverFleet({ user, onLogout }) {
         right={<TouchableOpacity onPress={onLogout}><MaterialCommunityIcons name="logout" size={22} color={C.ink} /></TouchableOpacity>} />
       <ScrollView contentContainerStyle={{ padding: S.lg, paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
         <View style={{ gap: 10 }}>
-          <View style={{ flexDirection: "row", gap: 10 }}>
+          <View style={{ flexDirection: "row", gap: 10, height: 150 }}>
             <Tile big style={{ flex: 1.5, minWidth: 0 }} label="Last payslip" value={lastSlip ? rupee(lastSlip.netPay) : "—"} icon="cash" tone="green" sub={lastSlip ? `net pay · ${lastSlip.period}` : "no payslip yet"} />
             <View style={{ flex: 1, gap: 10, minWidth: 0 }}>
               <Tile style={{ flex: 1, minWidth: 0 }} label="My trips" value={loads.length} icon="truck-check" />
               <Tile style={{ flex: 1, minWidth: 0 }} label="Pending cut" value={rupee(pending)} icon="cash-minus" tone="rose" />
             </View>
           </View>
-          <Tile style={{ minWidth: 0 }} label="Pending salary" value={rupee(summary.pendingSalary || 0)} icon="cash-clock" tone="amber" />
+          <View style={{ height: 84 }}>
+            <Tile style={{ flex: 1, minWidth: 0 }} label="Pending salary" value={rupee(summary.pendingSalary || 0)} icon="cash-clock" tone="amber" />
+          </View>
         </View>
         <View style={s.actionRow}>
           <AppButton title="Meter reading" icon="camera" onPress={() => setModal("meter")} style={{ flex: 1 }} />
@@ -720,46 +722,30 @@ function OwnerFleet({ user, onLogout }) {
 
                 {/* Bento grid — money + fleet at a glance */}
                 <View style={{ gap: 10, marginTop: S.md }}>
-                  <View style={{ flexDirection: "row", gap: 10 }}>
+                  <View style={{ flexDirection: "row", gap: 10, height: 150 }}>
                     <Tile big style={{ flex: 1.5, minWidth: 0 }} label="Total spend" value={rupee(t.total)} icon="cash-multiple" tone="green" sub={`${t.trips || 0} trips`} />
                     <View style={{ flex: 1, gap: 10, minWidth: 0 }}>
                       <Tile style={{ flex: 1, minWidth: 0 }} label="Trucks" value={t.trucks} icon="dump-truck" />
                       <Tile style={{ flex: 1, minWidth: 0 }} label="Drivers" value={t.drivers} icon="account-group" tone="blue" />
                     </View>
                   </View>
-                  <View style={{ flexDirection: "row", gap: 10 }}>
+                  <View style={{ flexDirection: "row", gap: 10, height: 84 }}>
                     <Tile style={{ minWidth: 0 }} label="Diesel" value={`${Math.round(t.oilLiters || 0)}L`} icon="fuel" tone="blue" />
                     <Tile style={{ minWidth: 0 }} label="Tolls" value={rupee(t.fastag)} icon="boom-gate" tone="indigo" />
                     <Tile style={{ minWidth: 0 }} label="Fuel ₹" value={rupee(t.fuel)} icon="fuel" tone="green" />
                   </View>
-                  <View style={{ flexDirection: "row", gap: 10 }}>
+                  <View style={{ flexDirection: "row", gap: 10, height: 84 }}>
                     <Tile style={{ minWidth: 0 }} label="Meal" value={rupee(t.mealAllowance)} icon="food" tone="teal" />
                     <Tile style={{ minWidth: 0 }} label="Extra diesel" value={`${Math.round(t.extraOilL || 0)}L`} icon="fuel" tone="rose" />
                   </View>
-                  <View style={{ flexDirection: "row", gap: 10 }}>
+                  <View style={{ flexDirection: "row", gap: 10, height: 84 }}>
                     <Tile style={{ minWidth: 0 }} label="Invoices pending" value={t.pendingInvoice || 0} icon="file-alert" tone="amber" />
                     <Tile style={{ minWidth: 0 }} label="Shortage" value={`${(t.shortageL || 0).toFixed(0)}L`} icon="alert" tone="rose" />
                   </View>
                 </View>
 
-                {/* Settlement / collection rings */}
-                {(() => {
-                  const L = ledger.summary || {};
-                  const settledPct = L.loads ? (L.settled / L.loads) * 100 : 0;
-                  const collPct = L.totalFreight ? (L.totalReceived / L.totalFreight) * 100 : 0;
-                  const allSettled = L.loads > 0 && L.pending === 0;
-                  return (
-                    <View style={{ marginTop: S.md, gap: 10 }}>
-                      <RingStatRN colors={allSettled ? ["#0d9488", "#047857"] : ["#f59e0b", "#b45309"]} percent={settledPct}
-                        value={rupee(L.pendingFreight)} label={allSettled ? "All settled — nothing pending" : "Settlement pending"}
-                        sub={`${L.settled || 0}/${L.loads || 0} settled by bank`} />
-                      <RingStatRN colors={["#2563eb", "#1e3a8a"]} percent={collPct}
-                        value={rupee(L.totalReceived)} label="Received in bank" sub={`of ${rupee(L.totalFreight)} freight`} />
-                    </View>
-                  );
-                })()}
                 {/* Bento MENU — tap a section (replaces the chip row) */}
-                <Text style={[s.section, { marginTop: S.lg }]}>Manage</Text>
+                <Text style={[s.section, { marginTop: S.lg }]}>Menu</Text>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
                   {MENU.map((m) => {
                     const clr = MENU_COLOR[m.key] || "#4F46E5";
@@ -783,6 +769,23 @@ function OwnerFleet({ user, onLogout }) {
                     );
                   })}
                 </View>
+
+                {/* Settlement / collection rings */}
+                {(() => {
+                  const L = ledger.summary || {};
+                  const settledPct = L.loads ? (L.settled / L.loads) * 100 : 0;
+                  const collPct = L.totalFreight ? (L.totalReceived / L.totalFreight) * 100 : 0;
+                  const allSettled = L.loads > 0 && L.pending === 0;
+                  return (
+                    <View style={{ marginTop: S.lg, gap: 10 }}>
+                      <RingStatRN colors={allSettled ? ["#0d9488", "#047857"] : ["#f59e0b", "#b45309"]} percent={settledPct}
+                        value={rupee(L.pendingFreight)} label={allSettled ? "All settled — nothing pending" : "Settlement pending"}
+                        sub={`${L.settled || 0}/${L.loads || 0} settled by bank`} />
+                      <RingStatRN colors={["#2563eb", "#1e3a8a"]} percent={collPct}
+                        value={rupee(L.totalReceived)} label="Received in bank" sub={`of ${rupee(L.totalFreight)} freight`} />
+                    </View>
+                  );
+                })()}
               </>
             )}
 
@@ -1197,9 +1200,16 @@ function Sheet({ title, children, onClose }) {
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose}>
       <View style={s.sheetBg}>
+        {/* tap the dimmed area to dismiss */}
+        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
         <View style={s.sheet}>
           <View style={s.handle} />
-          <Text style={s.sheetTitle}>{title}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+            <Text style={[s.sheetTitle, { marginBottom: 0, flex: 1 }]} numberOfLines={1}>{title}</Text>
+            <TouchableOpacity onPress={onClose} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ padding: 4 }}>
+              <MaterialCommunityIcons name="close" size={24} color={C.sub} />
+            </TouchableOpacity>
+          </View>
           <ScrollView keyboardShouldPersistTaps="handled">{children}</ScrollView>
         </View>
       </View>
