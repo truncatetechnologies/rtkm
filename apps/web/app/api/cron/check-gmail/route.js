@@ -7,6 +7,7 @@ import { createNotification } from "@/lib/services/notifications";
 import { buildQuery, cleanSender } from "@/lib/services/gmailImport";
 import { syncGateIns } from "@/lib/services/gateIn";
 import { syncDocExpiry } from "@/lib/services/vehicleAlert";
+import { syncDeliveryConfirmations } from "@/lib/services/deliveryConfirmation";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // allow up to 60s to scan inboxes (Vercel clamps to the plan's max)
@@ -33,6 +34,7 @@ async function run(request) {
       // These store the event AND push a notification for each new one (so the mobile app is alerted).
       try { totalNew += (await syncGateIns({ scope, days: since })).created || 0; } catch { /* continue */ }
       try { totalNew += (await syncDocExpiry({ scope, days: since })).created || 0; } catch { /* continue */ }
+      try { totalNew += (await syncDeliveryConfirmations({ scope, days: since })).shortagesCreated || 0; } catch { /* continue */ }
 
       // New PDF attachments — only alert for trusted senders (oil company / bank), configured in
       // Settings → Gmail. No senders set → no PDF alerts (random personal PDFs never notify).

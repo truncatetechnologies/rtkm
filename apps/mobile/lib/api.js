@@ -93,6 +93,8 @@ export async function createTruck(payload) { return (await req("/api/trucks", { 
 export async function updateTruck(id, payload) { return (await req(`/api/trucks/${id}`, { method: "PUT", body: payload })).truck; }
 export async function getLoads(transportId) { return (await req(`/api/loads?transportId=${transportId}`)).loads; }
 export async function getShortages(transportId) { return (await req(`/api/shortages?transportId=${transportId}`)).shortages; }
+// Capture shortages early from Nayara delivery-confirmation emails (before the monthly freight PDF).
+export async function syncDeliveries(transportId, days) { return req("/api/deliveries/sync", { method: "POST", body: { transportId, days }, timeout: 300000 }); }
 export async function getSpend(transportId, from, to, company) {
   let p = `/api/reports/spend?transportId=${transportId}`;
   if (from) p += `&from=${encodeURIComponent(from)}`;

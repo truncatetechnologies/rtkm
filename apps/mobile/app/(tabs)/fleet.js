@@ -5,7 +5,7 @@ import * as ImagePicker from "expo-image-picker";
 import { getUser, setToken, setUser, getServerUrl, getToken } from "../../lib/config";
 import {
   login, ownerRegister, getTransports, updateTransport, wipeTransport, getMembers, createMember, updateMember, getTrucks, createTruck, updateTruck,
-  getLoads, getShortages, getSpend, getMyLoads, getMyPayslips,
+  getLoads, getShortages, syncDeliveries, getSpend, getMyLoads, getMyPayslips,
   uploadInvoice, uploadShortage, confirmInvoice, confirmShortage, setMealAllowance,
   getMaintenance, createMaintenance, getSalaries, generateSalary, paySalary, discardSalary,
   getLeaves, addLeave, deleteLeave,
@@ -523,6 +523,7 @@ function OwnerFleet({ user, onLogout }) {
   const [alerts, setAlerts] = useState({ rows: [], total: 0 });
   const [alertsBusy, setAlertsBusy] = useState(false);
   const [firstLoad, setFirstLoad] = useState(true); // show a spinner until the first data load finishes
+  const [delivBusy, setDelivBusy] = useState(false);
   const [modal, setModal] = useState(null);
 
   useEffect(() => {
@@ -564,6 +565,14 @@ function OwnerFleet({ user, onLogout }) {
       Alert.alert("Alerts synced", `Scanned ${r.scanned} email(s), ${r.created} new alert(s) added.`);
       getVehicleAlerts(tid).then(setAlerts).catch(() => {});
     } catch (e) { Alert.alert("Error", String(e.message || e)); } finally { setAlertsBusy(false); }
+  }
+  async function syncDeliv() {
+    setDelivBusy(true);
+    try {
+      const r = await syncDeliveries(tid, 365);
+      Alert.alert("Shortages synced", `Scanned ${r.scanned} email(s), ${r.shortagesCreated} new shortage(s) recorded.`);
+      refresh();
+    } catch (e) { Alert.alert("Error", String(e.message || e)); } finally { setDelivBusy(false); }
   }
   async function pickFastag() {
     try {
@@ -744,7 +753,8 @@ function OwnerFleet({ user, onLogout }) {
 
             {tab === "shortages" && (
               <View style={{ marginTop: S.md }}>
-                <Text style={s.rowMeta}>Depot shortages often arrive 15–45 days late. Each is tracked as Pending (not yet cut) or Deducted (and which month's payslip).</Text>
+                <Text style={s.rowMeta}>Nayara emails a delivery confirmation within days of each trip. Sync captures those shortages early so salary is cut on time; the monthly freight PDF is the backup.</Text>
+                {user.role === "owner" && <AppButton title={delivBusy ? "Syncing…" : "Sync from email"} icon="email-sync-outline" onPress={syncDeliv} loading={delivBusy} style={{ marginTop: 10 }} />}
                 <View style={{ height: S.md }} />
                 {shortages.length === 0 ? <EmptyState icon="check-circle-outline" text="No shortages" /> :
                   shortages.map((x) => {
