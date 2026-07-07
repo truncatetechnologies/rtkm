@@ -66,7 +66,7 @@ export async function GET(request) {
     pendingFreight,
     totalOil: sum("oilLiters"), // diesel given to drivers (lead-load only → no double-count per shipment)
     shipments: new Set(all.map((l) => l.shipmentNo || `i:${l._id}`)).size,
-    pendingInvoice: all.filter((l) => !l.hasInvoice).length, // deliveries whose source Tax Invoice isn't uploaded
+    pendingInvoice: all.filter((l) => !l.hasInvoice && !l.invoiceAck).length, // Tax Invoice not uploaded AND not acknowledged
     loads: all.length,
     settled: all.filter((l) => l.settlementStatus === "settled").length,
     pending: all.filter((l) => l.settlementStatus !== "settled").length,

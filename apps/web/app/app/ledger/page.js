@@ -7,6 +7,19 @@ import { Box, Typography } from "@mui/material";
 import { Wallet, IndianRupee, TrendingDown, Clock, Fuel, Truck, Plus, Trash2, ChevronDown, ChevronRight, AlertTriangle, CheckCircle2, Toll } from "@/components/icons";
 
 const FILTERS = [["all", "All"], ["pending", "Pending"], ["settled", "Settled"]];
+const PERIODS = [["1m", "This month"], ["3m", "3 months"], ["6m", "6 months"], ["year", "This year"], ["all", "All time"]];
+// A period key → ISO "from" date (loadDate ≥ from). "" = no lower bound (all time).
+function periodFrom(key) {
+  if (key === "all") return "";
+  const now = new Date();
+  const from =
+    key === "1m" ? new Date(now.getFullYear(), now.getMonth(), 1)
+    : key === "6m" ? new Date(now.getFullYear(), now.getMonth() - 5, 1)
+    : key === "year" ? new Date(now.getFullYear(), 0, 1)
+    : new Date(now.getFullYear(), now.getMonth() - 2, 1); // 3m default
+  from.setHours(0, 0, 0, 0);
+  return from.toISOString();
+}
 const REASONS = [["breakdown", "Breakdown"], ["route_change", "Route change"], ["route_issue", "Route issue / detour"], ["other", "Other"]];
 const reasonLabel = (r) => REASONS.find(([k]) => k === r)?.[1] || r;
 
@@ -46,6 +59,7 @@ export default function Ledger() {
   const [data, setData] = useState({ loads: [], summary: null });
   const [extra, setExtra] = useState([]);
   const [filter, setFilter] = useState("all");
+  const [period, setPeriod] = useState("3m"); // default to recent 3 months so the page loads fast
   const [loading, setLoading] = useState(true);
   const [extraFor, setExtraFor] = useState(null); // shipment group we're adding extra oil to
   const [helpOpen, setHelpOpen] = useState(false);
@@ -56,14 +70,21 @@ export default function Ledger() {
     setLoading(true);
     try {
       const q = filter === "all" ? "" : `&status=${filter}`;
+      const fromParam = periodFrom(period); // only fetch the selected window → faster
+      const dq = fromParam ? `&from=${encodeURIComponent(fromParam)}` : "";
       const [led, ext] = await Promise.all([
-        api(`/api/ledger?transportId=${activeId}&company=${activeCompany}${q}`),
+        api(`/api/ledger?transportId=${activeId}&company=${activeCompany}${q}${dq}`),
         api(`/api/extra-oil?transportId=${activeId}`),
       ]);
       setData(led); setExtra(ext.extraOil || []);
     } finally { setLoading(false); }
-  }, [activeId, activeCompany, filter]);
+  }, [activeId, activeCompany, filter, period]);
   useEffect(() => { load(); }, [load]);
+
+  async function ackInvoice(invoiceNumber) {
+    await api("/api/loads/ack-invoice", { method: "POST", body: { transportId: activeId, invoiceNumber } });
+    load();
+  }
 
   if (!activeId) return <Card>Select or create a transport first.</Card>;
   // First load (server can be slow on cold start) — show a clear loader instead of an empty page.
@@ -71,7 +92,7 @@ export default function Ledger() {
   const s = data.summary || {};
   const groups = groupByShipment(data.loads, extra);
   const totalExtra = extra.reduce((sum, e) => sum + (e.litres || 0), 0);
-  const pendingInvoices = [...new Set(data.loads.filter((l) => !l.hasInvoice).map((l) => l.invoiceNumber).filter(Boolean))];
+  const pendingInvoices = [...new Set(data.loads.filter((l) => !l.hasInvoice && !l.invoiceAck).map((l) => l.invoiceNumber).filter(Boolean))];
 
   async function removeExtra(id) {
     if (!(await confirm({ title: "Remove extra oil?", message: "This deletes this extra-oil entry.", confirmLabel: "Remove", danger: true }))) return;
@@ -117,12 +138,23 @@ export default function Ledger() {
             <AlertTriangle size={18} /> {pendingInvoices.length} deliveries are missing their Invoice PDF
           </Box>
           <Typography sx={{ mt: 0.5, fontSize: 13, color: "#92400e" }}>
-            These came from a Statement of Freight but their <b>Tax Invoice hasn't been uploaded</b> — driver &amp; full details may be incomplete and settlement may not match. Upload the invoice for: <b>{pendingInvoices.join(", ")}</b>. (Each pending row is marked below.)
+            These came from a Statement of Freight but their <b>Tax Invoice hasn't been uploaded</b>. Upload it, or if you won't get the invoice for one, tap <b>✓ received</b> to acknowledge it so it stops counting.
           </Typography>
+          <Box sx={{ mt: 1.25, display: "flex", flexWrap: "wrap", gap: 0.75 }}>
+            {pendingInvoices.map((inv) => (
+              <Box key={inv} sx={{ display: "flex", alignItems: "center", gap: 0.5, borderRadius: 999, bgcolor: "rgba(255,255,255,0.8)", border: "1px solid rgba(245,158,11,0.4)", pl: 1.25, pr: 0.5, py: 0.25 }}>
+                <Typography component="span" sx={{ fontSize: 12.5, fontWeight: 600, color: "#92400e", fontFamily: "monospace" }}>{inv}</Typography>
+                <Box component="button" onClick={() => ackInvoice(inv)} title="Mark received offline"
+                  sx={{ display: "inline-flex", alignItems: "center", gap: 0.25, border: "none", cursor: "pointer", borderRadius: 999, bgcolor: "rgba(16,185,129,0.15)", color: "#059669", fontSize: 11.5, fontWeight: 700, px: 0.75, py: 0.25, "&:hover": { bgcolor: "rgba(16,185,129,0.28)" } }}>
+                  <CheckCircle2 size={13} /> received
+                </Box>
+              </Box>
+            ))}
+          </Box>
         </Box>
       )}
 
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+      <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1 }}>
         {FILTERS.map(([k, label]) => (
           <Button key={k} variant="ghost" onClick={() => setFilter(k)}
             className={filter === k ? undefined : "glass"}
@@ -130,6 +162,12 @@ export default function Ledger() {
             {label}{k === "settled" && s.settled != null ? ` (${s.settled})` : k === "pending" && s.pending != null ? ` (${s.pending})` : ""}
           </Button>
         ))}
+        <Box sx={{ ml: { sm: "auto" }, display: "flex", alignItems: "center", gap: 1 }}>
+          <Typography component="span" sx={{ fontSize: 13, color: "text.secondary" }}>Period</Typography>
+          <Select value={period} onChange={(e) => setPeriod(e.target.value)} sx={{ width: "auto", minWidth: 130 }}>
+            {PERIODS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+          </Select>
+        </Box>
       </Box>
 
       <Table head={["Invoice date", "Invoice", "Pump", "Vehicle / Driver", "Sale (L)", "Deliv (L)", "Short (L)", "RTKM", "Rate", "Freight ₹", "Net recd", "Settled date", "Status"]}>

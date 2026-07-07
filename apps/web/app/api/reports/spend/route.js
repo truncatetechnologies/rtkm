@@ -38,7 +38,7 @@ export async function GET(request) {
     Load.countDocuments({ transportId: tId, ...co, ...dateRange("loadDate") }),
     Truck.countDocuments({ transportId: tId }),
     User.countDocuments({ transportId: tId, role: "driver" }),
-    Load.countDocuments({ transportId: tId, hasInvoice: false, ...co, ...dateRange("loadDate") }),
+    Load.countDocuments({ transportId: tId, hasInvoice: false, invoiceAck: { $ne: true }, ...co, ...dateRange("loadDate") }),
     Load.aggregate([{ $match: { transportId: tId, ...co, ...dateRange("loadDate") } }, { $group: { _id: null, s: { $sum: "$shortageL" } } }]),
   ]);
 

@@ -135,6 +135,8 @@ export async function getLedger(transportId, company, from, to) {
   if (to) p += `&to=${encodeURIComponent(to)}`;
   return req(p);
 }
+// Mark a delivery's invoice "received offline" so it stops counting as pending.
+export async function ackInvoice(transportId, invoiceNumber) { return req("/api/loads/ack-invoice", { method: "POST", body: { transportId, invoiceNumber } }); }
 export async function uploadLedger(asset, transportId, force) { return uploadPdf("/api/ledger/upload", asset, transportId, force); }
 export async function getDriverShortage(transportId, period) { return req(`/api/reports/driver-shortage?transportId=${transportId}${period ? `&period=${period}` : ""}`); }
 export async function getProfitability(transportId) { return req(`/api/reports/profitability?transportId=${transportId}`); }

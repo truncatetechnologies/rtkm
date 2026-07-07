@@ -46,6 +46,7 @@ const LoadSchema = new mongoose.Schema(
     mealAllowanceManual: { type: Boolean, default: false },
 
     hasInvoice: { type: Boolean, default: false }, // true once the source Tax Invoice PDF was uploaded
+    invoiceAck: { type: Boolean, default: false }, // manually marked "received offline" — stops counting as pending
     loadDate: { type: Date, default: () => new Date() },
     status: { type: String, enum: ["planned", "completed"], default: "completed" },
     notes: { type: String, default: "" },
@@ -124,6 +125,7 @@ export function toLoad(doc) {
     netReceived: o.netReceived || 0,
     settlementStatus: o.settlementStatus || "pending",
     hasInvoice: !!o.hasInvoice,
+    invoiceAck: !!o.invoiceAck,
     paymentRef: o.paymentRef || "",
     paidDate: o.paidDate,
     createdAt: o.createdAt,

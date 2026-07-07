@@ -9,7 +9,7 @@ import {
   uploadInvoice, uploadShortage, confirmInvoice, confirmShortage, setMealAllowance,
   getMaintenance, createMaintenance, getSalaries, generateSalary, paySalary, discardSalary,
   getLeaves, addLeave, deleteLeave,
-  getLedger, uploadLedger, getDriverShortage, gmailStatus, gmailMessages, gmailImport, gmailImportAll,
+  getLedger, ackInvoice, uploadLedger, getDriverShortage, gmailStatus, gmailMessages, gmailImport, gmailImportAll,
   getUploads, revertUpload, clearApiCache,
   getExtraOil, addExtraOil, deleteExtraOil, getExtraOilReport, getCompanies,
   getMyMeterReadings, getMeterReadings, submitMyMeterReading, submitMeterReading,
@@ -822,11 +822,23 @@ function OwnerFleet({ user, onLogout }) {
                   <Tile label="Shortage cut" value={rupee(ledger.summary?.totalDeduction)} icon="trending-down" tone="rose" />
                 </View>
                 {(() => {
-                  const pend = [...new Set((ledger.loads || []).filter((l) => !l.hasInvoice).map((l) => l.invoiceNumber).filter(Boolean))];
+                  const pend = [...new Set((ledger.loads || []).filter((l) => !l.hasInvoice && !l.invoiceAck).map((l) => l.invoiceNumber).filter(Boolean))];
+                  const ack = (inv) => Alert.alert(`Invoice ${inv}`, "Mark as received offline? It stops counting as pending (no PDF needed).", [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Mark received", onPress: async () => { try { await ackInvoice(tid, inv); refresh(); } catch (e) { Alert.alert("Error", String(e.message || e)); } } },
+                  ]);
                   return pend.length > 0 ? (
                     <View style={{ marginTop: S.md, backgroundColor: "rgba(245,158,11,0.12)", borderRadius: 10, padding: 12 }}>
                       <Text style={{ color: "#b45309", fontWeight: "700" }}>⚠ {pend.length} deliveries missing their Invoice</Text>
-                      <Text style={{ color: "#92400e", fontSize: 12, marginTop: 4 }}>Saved but marked “invoice pending” — upload the Tax Invoice for: {pend.join(", ")}.</Text>
+                      <Text style={{ color: "#92400e", fontSize: 12, marginTop: 4 }}>Upload the Tax Invoice, or tap one below to mark it received offline (stops counting).</Text>
+                      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                        {pend.map((inv) => (
+                          <TouchableOpacity key={inv} onPress={() => ack(inv)} style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#fff", borderWidth: 1, borderColor: "rgba(245,158,11,0.5)", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
+                            <Text style={{ color: "#92400e", fontWeight: "700", fontSize: 12 }}>{inv}</Text>
+                            <Text style={{ color: "#059669", fontWeight: "700", fontSize: 12 }}>✓ received</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
                     </View>
                   ) : null;
                 })()}
