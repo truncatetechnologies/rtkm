@@ -133,16 +133,17 @@ export function EmptyState({ icon = "inbox-outline", text }) {
 }
 
 // Gradient header with a glass right-slot.
+// Light bento-style header: soft white panel, dark text, accent icon chip.
 export function GradientHeader({ title, subtitle, icon, right, onBack }) {
   return (
-    <LinearGradient colors={[C.gradFrom, C.gradTo]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gh}>
+    <View style={styles.gh}>
       <View style={styles.ghRow}>
         <View style={{ flexDirection: "row", alignItems: "center", flex: 1, minWidth: 0 }}>
           {onBack ? (
-            <TouchableOpacity onPress={onBack} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={[styles.ghIcon, { backgroundColor: "rgba(255,255,255,0.18)" }]}>
-              <MaterialCommunityIcons name="arrow-left" size={22} color="#fff" />
+            <TouchableOpacity onPress={onBack} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={styles.ghIcon}>
+              <MaterialCommunityIcons name="arrow-left" size={22} color="#4F46E5" />
             </TouchableOpacity>
-          ) : icon ? <View style={styles.ghIcon}><MaterialCommunityIcons name={icon} size={22} color="#fff" /></View> : null}
+          ) : icon ? <View style={styles.ghIcon}><MaterialCommunityIcons name={icon} size={22} color="#4F46E5" /></View> : null}
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={styles.ghTitle} numberOfLines={1}>{title}</Text>
             {subtitle ? <Text style={styles.ghSub} numberOfLines={1}>{subtitle}</Text> : null}
@@ -150,7 +151,7 @@ export function GradientHeader({ title, subtitle, icon, right, onBack }) {
         </View>
         {right ? <View style={{ flexShrink: 0, marginLeft: 8 }}>{right}</View> : null}
       </View>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -224,11 +225,11 @@ const styles = StyleSheet.create({
   dot: { width: 2, height: 2, borderRadius: 1 },
   empty: { alignItems: "center", justifyContent: "center", padding: S.xxl },
   emptyText: { color: C.faint, marginTop: 8, fontSize: 14 },
-  gh: { paddingTop: 50, paddingBottom: 12, paddingHorizontal: S.lg, borderBottomLeftRadius: R.lg, borderBottomRightRadius: R.lg },
+  gh: { paddingTop: 52, paddingBottom: 14, paddingHorizontal: S.lg, backgroundColor: "rgba(255,255,255,0.92)", borderBottomLeftRadius: 22, borderBottomRightRadius: 22, borderBottomWidth: 1, borderColor: "rgba(15,23,42,0.06)", ...shadowSoft },
   ghRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  ghIcon: { width: 34, height: 34, borderRadius: 11, backgroundColor: "rgba(255,255,255,0.22)", alignItems: "center", justifyContent: "center", marginRight: 10, flexShrink: 0 },
-  ghTitle: { color: "#fff", fontSize: 18, fontWeight: "800" },
-  ghSub: { color: "rgba(255,255,255,0.9)", fontSize: 12, marginTop: 1 },
+  ghIcon: { width: 36, height: 36, borderRadius: 11, backgroundColor: "rgba(79,70,229,0.10)", alignItems: "center", justifyContent: "center", marginRight: 10, flexShrink: 0 },
+  ghTitle: { color: C.ink, fontSize: 18, fontWeight: "800" },
+  ghSub: { color: C.sub, fontSize: 12, marginTop: 1 },
   selectShadow: { borderRadius: R.md, ...shadowSoft },
   selectBlur: { borderRadius: R.md, overflow: "hidden", borderWidth: 1, borderColor: C.glassBorder },
   selectInner: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 14, backgroundColor: C.glass },

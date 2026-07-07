@@ -76,7 +76,7 @@ function AdminFleet({ user, onLogout }) {
   return (
     <ScreenBg>
       <GradientHeader title={`Hi, ${user.name}`} subtitle="Admin" icon="shield-check"
-        right={<TouchableOpacity onPress={onLogout}><MaterialCommunityIcons name="logout" size={22} color="#fff" /></TouchableOpacity>} />
+        right={<TouchableOpacity onPress={onLogout}><MaterialCommunityIcons name="logout" size={22} color={C.ink} /></TouchableOpacity>} />
       <ScrollView contentContainerStyle={{ padding: S.lg, paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
         <View style={{ flexDirection: "row", gap: 8, marginBottom: S.md }}>
           <Chip label={`Approvals${pending ? ` (${pending})` : ""}`} active={tab === "approvals"} onPress={() => setTab("approvals")} icon="check-decagram" />
@@ -143,7 +143,7 @@ function AdminTransportDetail({ id, onBack }) {
   return (
     <ScreenBg>
       <GradientHeader title={d.transport.name} subtitle={`Owner: ${d.transport.ownerName}`} icon="truck"
-        right={<TouchableOpacity onPress={onBack}><MaterialCommunityIcons name="close" size={22} color="#fff" /></TouchableOpacity>} />
+        right={<TouchableOpacity onPress={onBack}><MaterialCommunityIcons name="close" size={22} color={C.ink} /></TouchableOpacity>} />
       <ScrollView contentContainerStyle={{ padding: S.lg, paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
         {d.months.length > 0 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 4, marginBottom: S.md }}>
@@ -275,7 +275,7 @@ function DriverFleet({ user, onLogout }) {
   return (
     <ScreenBg>
       <GradientHeader title={`Hi, ${user.name}`} subtitle="Driver" icon="account"
-        right={<TouchableOpacity onPress={onLogout}><MaterialCommunityIcons name="logout" size={22} color="#fff" /></TouchableOpacity>} />
+        right={<TouchableOpacity onPress={onLogout}><MaterialCommunityIcons name="logout" size={22} color={C.ink} /></TouchableOpacity>} />
       <ScrollView contentContainerStyle={{ padding: S.lg, paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
         <View style={{ gap: 10 }}>
           <View style={{ flexDirection: "row", gap: 10 }}>
@@ -442,6 +442,11 @@ const MENU = [
   { key: "settings", label: "Settings", icon: "cog" },
 ];
 const SECTION_LABEL = Object.fromEntries([...OPS_TABS, ...MENU].map((t) => [t.key, t.label]));
+const MENU_COLOR = {
+  loads: "#2563EB", ledger: "#4F46E5", shortages: "#E11D48", fastag: "#7C3AED", gatein: "#0D9488",
+  alerts: "#D97706", meterReadings: "#2563EB", maintenance: "#059669", salaries: "#0D9488",
+  reports: "#4F46E5", drivers: "#2563EB", trucks: "#059669", managers: "#7C3AED", uploads: "#6B7280", settings: "#4F46E5",
+};
 
 const EXTRA_REASONS = [
   ["breakdown", "Breakdown"],
@@ -670,14 +675,14 @@ function OwnerFleet({ user, onLogout }) {
         right={
           <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
             <TouchableOpacity onPress={openNotifs}>
-              <MaterialCommunityIcons name="bell-outline" size={23} color="#fff" />
+              <MaterialCommunityIcons name="bell-outline" size={23} color={C.ink} />
               {notifs.unread > 0 && (
                 <View style={{ position: "absolute", top: -5, right: -6, minWidth: 16, height: 16, paddingHorizontal: 3, borderRadius: 8, backgroundColor: "#ef4444", alignItems: "center", justifyContent: "center" }}>
                   <Text style={{ color: "#fff", fontSize: 9, fontWeight: "800" }}>{notifs.unread > 9 ? "9+" : notifs.unread}</Text>
                 </View>
               )}
             </TouchableOpacity>
-            <TouchableOpacity onPress={onLogout}><MaterialCommunityIcons name="logout" size={22} color="#fff" /></TouchableOpacity>
+            <TouchableOpacity onPress={onLogout}><MaterialCommunityIcons name="logout" size={22} color={C.ink} /></TouchableOpacity>
           </View>
         } />
       <ScrollView contentContainerStyle={{ padding: S.lg, paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
@@ -757,15 +762,16 @@ function OwnerFleet({ user, onLogout }) {
                 <Text style={[s.section, { marginTop: S.lg }]}>Manage</Text>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
                   {MENU.map((m) => {
+                    const clr = MENU_COLOR[m.key] || "#4F46E5";
                     const badge = m.key === "ledger" ? (t.pendingInvoice || 0)
                       : m.key === "alerts" ? (alerts.total || 0)
                       : m.key === "gatein" ? (gateIn.total || 0) : 0;
                     return (
                       <TouchableOpacity key={m.key} onPress={() => setTab(m.key)} activeOpacity={0.8} style={{ width: "48%" }}>
-                        <View style={[{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: C.card, borderRadius: R.lg, padding: 14 }, shadow]}>
-                          <LinearGradient colors={[C.gradFrom, C.gradTo]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" }}>
-                            <MaterialCommunityIcons name={m.icon} size={20} color="#fff" />
-                          </LinearGradient>
+                        <View style={[{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: C.card, borderRadius: R.lg, padding: 14, borderWidth: 1, borderColor: "rgba(15,23,42,0.06)" }, shadow]}>
+                          <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: clr + "1A", alignItems: "center", justifyContent: "center" }}>
+                            <MaterialCommunityIcons name={m.icon} size={22} color={clr} />
+                          </View>
                           <Text style={{ flex: 1, fontSize: 13, fontWeight: "700", color: C.ink }} numberOfLines={2}>{m.label}</Text>
                           {badge > 0 ? (
                             <View style={{ minWidth: 20, height: 20, paddingHorizontal: 5, borderRadius: 10, backgroundColor: C.amber, alignItems: "center", justifyContent: "center" }}>

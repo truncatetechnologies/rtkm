@@ -72,7 +72,7 @@ export default function Calculator() {
             </View>
             <TouchableOpacity onPress={() => router.push("/fleet")} accessibilityRole="button" accessibilityLabel={t("login")}
               style={styles.loginBtn}>
-              <MaterialCommunityIcons name="login" size={18} color={C.greenDark} />
+              <MaterialCommunityIcons name="login" size={18} color="#fff" />
               <Text style={styles.loginText} numberOfLines={1}>{t("login")}</Text>
             </TouchableOpacity>
           </View>
@@ -233,12 +233,12 @@ function SubmitModal({ visible, depot, t, onClose }) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
-  langToggle: { flexDirection: "row", alignItems: "stretch", height: 40, borderRadius: R.sm, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.25)", flexShrink: 0 },
+  langToggle: { flexDirection: "row", alignItems: "stretch", height: 40, borderRadius: R.sm, overflow: "hidden", backgroundColor: "rgba(79,70,229,0.08)", borderWidth: 1, borderColor: "rgba(79,70,229,0.15)", flexShrink: 0 },
   langBtn: { paddingHorizontal: 12, alignItems: "center", justifyContent: "center" },
-  langBtnActive: { backgroundColor: "#fff" },
-  langText: { color: "#fff", fontWeight: "700" }, langTextActive: { color: C.green, fontWeight: "800" },
-  loginBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, flexShrink: 0, borderRadius: R.sm, backgroundColor: "#fff", paddingHorizontal: 14, height: 40, ...shadowSoft },
-  loginText: { color: C.greenDark, fontWeight: "800", fontSize: 13 },
+  langBtnActive: { backgroundColor: C.green },
+  langText: { color: C.sub, fontWeight: "700" }, langTextActive: { color: "#fff", fontWeight: "800" },
+  loginBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, flexShrink: 0, borderRadius: R.sm, backgroundColor: C.green, paddingHorizontal: 14, height: 40, ...shadowSoft },
+  loginText: { color: "#fff", fontWeight: "800", fontSize: 13 },
   statusPill: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: C.greenLight, paddingHorizontal: 12, paddingVertical: 6, borderRadius: R.pill },
   statusText: { color: C.greenDark, fontSize: 12, fontWeight: "600" },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
