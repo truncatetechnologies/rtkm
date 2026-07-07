@@ -1,5 +1,7 @@
 import { dbConnect } from "@/lib/mongoose";
-import { User, Shortage, SalaryRecord, Leave, toSalary, dayUTC } from "@/lib/models";
+import { User, Shortage, SalaryRecord, Leave, Load, toSalary, dayUTC } from "@/lib/models";
+
+const fmtInvDate = (d) => (d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "");
 
 function endOfPeriod(period) {
   // period = "YYYY-MM" -> last instant of that month (UTC, matching how dates are stored)
@@ -77,11 +79,20 @@ export async function generatePayslip({ ownerId, transportId, driverId, period, 
   if (Number.isFinite(lowerMs)) reportedAt.$gte = new Date(lowerMs);
   const shortages = await Shortage.find({ driverId, status: "open", reportedAt });
 
-  const deductions = shortages.map((s) => ({
-    reason: `Oil shortage (inv ${s.invoiceNumber || "?"}, ${s.shortageL}L)`,
-    amount: s.shortageValue || s.shortageL * (s.ratePerUnit || 0),
-    shortageId: s._id,
-  }));
+  // Look up each shortage's invoice date from its load so the breakdown shows date + invoice no.
+  const invNos = [...new Set(shortages.map((s) => s.invoiceNumber).filter(Boolean))];
+  const loadDocs = invNos.length ? await Load.find({ transportId, invoiceNumber: { $in: invNos } }).select("invoiceNumber invoiceDate") : [];
+  const dateByInv = {};
+  loadDocs.forEach((l) => { if (l.invoiceNumber && l.invoiceDate && !dateByInv[l.invoiceNumber]) dateByInv[l.invoiceNumber] = l.invoiceDate; });
+
+  const deductions = shortages.map((s) => {
+    const dt = fmtInvDate(dateByInv[s.invoiceNumber]);
+    return {
+      reason: `Oil shortage (inv ${s.invoiceNumber || "?"}${dt ? ` · ${dt}` : ""}, ${s.shortageL}L)`,
+      amount: s.shortageValue || s.shortageL * (s.ratePerUnit || 0),
+      shortageId: s._id,
+    };
+  });
   const addList = (additions || []).map((a) => ({ reason: a.reason || "Addition", amount: Number(a.amount) || 0 }));
 
   // Pro-rate the base for joining date + unpaid leave; that prorated amount feeds net pay.
