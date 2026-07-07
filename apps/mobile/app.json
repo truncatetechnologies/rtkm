@@ -34,6 +34,13 @@
         {
           "locationWhenInUsePermission": "RTKM uses your location to show distance to a petrol pump and open it in Maps."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "RTKM uses the camera to capture meter-reading photos.",
+          "photosPermission": "RTKM needs photo access to attach meter-reading images and pick PDFs."
+        }
       ]
     ]
   }

@@ -277,11 +277,15 @@ function DriverFleet({ user, onLogout }) {
       <GradientHeader title={`Hi, ${user.name}`} subtitle="Driver" icon="account"
         right={<TouchableOpacity onPress={onLogout}><MaterialCommunityIcons name="logout" size={22} color="#fff" /></TouchableOpacity>} />
       <ScrollView contentContainerStyle={{ padding: S.lg, paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
-        <View style={s.tiles}>
-          <Tile label="My trips" value={loads.length} icon="truck-check" />
-          <Tile label="Last payslip" value={lastSlip ? rupee(lastSlip.netPay) : "—"} icon="cash" tone="green" />
-          <Tile label="Pending salary" value={rupee(summary.pendingSalary || 0)} icon="cash-clock" tone="amber" />
-          <Tile label="Pending cut" value={rupee(pending)} icon="cash-minus" tone="rose" />
+        <View style={{ gap: 10 }}>
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <Tile big style={{ flex: 1.5, minWidth: 0 }} label="Last payslip" value={lastSlip ? rupee(lastSlip.netPay) : "—"} icon="cash" tone="green" sub={lastSlip ? `net pay · ${lastSlip.period}` : "no payslip yet"} />
+            <View style={{ flex: 1, gap: 10, minWidth: 0 }}>
+              <Tile style={{ flex: 1, minWidth: 0 }} label="My trips" value={loads.length} icon="truck-check" />
+              <Tile style={{ flex: 1, minWidth: 0 }} label="Pending cut" value={rupee(pending)} icon="cash-minus" tone="rose" />
+            </View>
+          </View>
+          <Tile style={{ minWidth: 0 }} label="Pending salary" value={rupee(summary.pendingSalary || 0)} icon="cash-clock" tone="amber" />
         </View>
         <View style={s.actionRow}>
           <AppButton title="Meter reading" icon="camera" onPress={() => setModal("meter")} style={{ flex: 1 }} />
@@ -698,13 +702,31 @@ function OwnerFleet({ user, onLogout }) {
                   ))}
                 </ScrollView>
 
-                {/* Fleet counts — compact, next to the period filter */}
-                <View style={[s.tiles, { marginTop: S.md }]}>
-                  <Tile label="Trucks" value={t.trucks} icon="dump-truck" />
-                  <Tile label="Drivers" value={t.drivers} icon="account-group" tone="blue" />
+                {/* Bento grid — money + fleet at a glance */}
+                <View style={{ gap: 10, marginTop: S.md }}>
+                  <View style={{ flexDirection: "row", gap: 10 }}>
+                    <Tile big style={{ flex: 1.5, minWidth: 0 }} label="Total spend" value={rupee(t.total)} icon="cash-multiple" tone="green" sub={`${t.trips || 0} trips`} />
+                    <View style={{ flex: 1, gap: 10, minWidth: 0 }}>
+                      <Tile style={{ flex: 1, minWidth: 0 }} label="Trucks" value={t.trucks} icon="dump-truck" />
+                      <Tile style={{ flex: 1, minWidth: 0 }} label="Drivers" value={t.drivers} icon="account-group" tone="blue" />
+                    </View>
+                  </View>
+                  <View style={{ flexDirection: "row", gap: 10 }}>
+                    <Tile style={{ minWidth: 0 }} label="Diesel" value={`${Math.round(t.oilLiters || 0)}L`} icon="fuel" tone="blue" />
+                    <Tile style={{ minWidth: 0 }} label="Tolls" value={rupee(t.fastag)} icon="boom-gate" tone="indigo" />
+                    <Tile style={{ minWidth: 0 }} label="Fuel ₹" value={rupee(t.fuel)} icon="fuel" tone="green" />
+                  </View>
+                  <View style={{ flexDirection: "row", gap: 10 }}>
+                    <Tile style={{ minWidth: 0 }} label="Meal" value={rupee(t.mealAllowance)} icon="food" tone="teal" />
+                    <Tile style={{ minWidth: 0 }} label="Extra diesel" value={`${Math.round(t.extraOilL || 0)}L`} icon="fuel" tone="rose" />
+                  </View>
+                  <View style={{ flexDirection: "row", gap: 10 }}>
+                    <Tile style={{ minWidth: 0 }} label="Invoices pending" value={t.pendingInvoice || 0} icon="file-alert" tone="amber" />
+                    <Tile style={{ minWidth: 0 }} label="Shortage" value={`${(t.shortageL || 0).toFixed(0)}L`} icon="alert" tone="rose" />
+                  </View>
                 </View>
 
-                {/* First eye — money you're chasing today */}
+                {/* Settlement / collection rings */}
                 {(() => {
                   const L = ledger.summary || {};
                   const settledPct = L.loads ? (L.settled / L.loads) * 100 : 0;
@@ -720,19 +742,6 @@ function OwnerFleet({ user, onLogout }) {
                     </View>
                   );
                 })()}
-
-                {/* Operating spend */}
-                <View style={[s.tiles, { marginTop: S.md }]}>
-                  <Tile label="Total spend" value={rupee(t.total)} icon="cash-multiple" tone="green" />
-                  <Tile label="Trips" value={t.trips} icon="truck-check" tone="teal" />
-                  <Tile label="Fuel" value={rupee(t.fuel)} icon="fuel" />
-                  <Tile label="Diesel given" value={`${Math.round(t.oilLiters || 0)} L`} icon="fuel" tone="blue" />
-                  <Tile label="Extra diesel" value={`${Math.round(t.extraOilL || 0)} L`} icon="fuel" tone="rose" />
-                  <Tile label="Tolls" value={rupee(t.fastag)} icon="boom-gate" tone="indigo" />
-                  <Tile label="Meal allowance" value={rupee(t.mealAllowance)} icon="food" tone="blue" />
-                  <Tile label="Invoices pending" value={t.pendingInvoice || 0} icon="file-alert" tone="amber" />
-                  <Tile label="Shortage" value={`${(t.shortageL || 0).toFixed(0)} L`} icon="alert" tone="amber" />
-                </View>
                 {user.role === "owner" && activeTransport && (
                   <OilAvgCard transport={activeTransport} onSaved={refresh} />
                 )}

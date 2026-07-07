@@ -1,20 +1,18 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// Default server URL. On a real device use your machine's LAN IP, e.g.
-// http://192.168.1.5:3000 — change it in the Settings screen.
-const DEFAULT_SERVER = "http://localhost:3000";
+// Fixed backend — baked in so users (admin / transporter / driver) never configure a server.
+// For local development, temporarily point this at your machine, e.g. "http://192.168.1.5:3000".
+const SERVER_URL = "https://rtkm-web.vercel.app";
 
-const KEY_SERVER = "rtkm.serverUrl";
 const KEY_TOKEN = "rtkm.adminToken";
 const KEY_USER = "rtkm.adminUser";
 const KEY_LASTSYNC = "rtkm.lastSync";
 
 export async function getServerUrl() {
-  return (await AsyncStorage.getItem(KEY_SERVER)) || DEFAULT_SERVER;
+  return SERVER_URL;
 }
-export async function setServerUrl(url) {
-  await AsyncStorage.setItem(KEY_SERVER, url.replace(/\/+$/, ""));
-}
+// Kept as a no-op so any old callers don't break; the server is fixed and not user-editable.
+export async function setServerUrl() {}
 
 export async function getToken() {
   return AsyncStorage.getItem(KEY_TOKEN);

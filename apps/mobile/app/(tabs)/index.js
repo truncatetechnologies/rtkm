@@ -8,7 +8,7 @@ import { searchPumps, countPumps } from "../../lib/db";
 import { syncFromServer, submitPump } from "../../lib/api";
 import { useI18n } from "../../lib/i18n";
 import { C, R, S, shadow, shadowSoft } from "../../lib/theme";
-import { Card, AppButton, Chip, StepLabel, GradientHeader, Dropdown, ScreenBg, LinearGradient, MaterialCommunityIcons } from "../../components/ui";
+import { Card, AppButton, Chip, StepLabel, GradientHeader, Dropdown, ScreenBg, LinearGradient, MaterialCommunityIcons, Tile } from "../../components/ui";
 
 const DEPOT_OPTIONS = DEPOTS.map((d) => ({ label: d.name, value: d.slug }));
 
@@ -162,38 +162,14 @@ export default function Calculator() {
           </View>
         </Card>
 
-        {/* result (compact matte-glass) */}
-        <Card style={{ marginTop: S.lg }}>
-          <View style={styles.resultRow}>
-            <View style={styles.resultIcon}><MaterialCommunityIcons name="fuel" size={20} color={C.green} /></View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.resultLabel}>{t("diesel")}</Text>
-              {!hasResult && <Text style={styles.resultHint}>{t("pickPumpHint")}</Text>}
-            </View>
-            <View style={styles.resultValueWrap}>
-              <Text style={styles.resultValue}>{oil}</Text>
-              <Text style={styles.resultUnit}>{t("litre")}</Text>
-            </View>
-          </View>
-        </Card>
-
-        {/* total amount = diesel litres × price */}
-        <Card style={[{ marginTop: S.md }, total != null && styles.totalCard]}>
-          <View style={styles.resultRow}>
-            <View style={[styles.resultIcon, { backgroundColor: total != null ? C.greenLight : "#EEF2F7" }]}>
-              <Text style={[styles.totalRupee, { color: total != null ? C.greenDark : C.faint }]}>₹</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.resultLabel}>{t("totalAmount")}</Text>
-              {total == null
-                ? <Text style={styles.resultHint}>{!hasResult ? t("pickPumpHint") : t("enterPriceHint")}</Text>
-                : <Text style={styles.resultHint}>{oil} {t("litre")} × ₹{priceNum}</Text>}
-            </View>
-            {total != null && (
-              <Text style={[styles.resultValue, { fontSize: 30 }]}>{inr(total)}</Text>
-            )}
-          </View>
-        </Card>
+        {/* result — bento: diesel litres + total amount side by side */}
+        <View style={{ flexDirection: "row", gap: 10, marginTop: S.lg }}>
+          <Tile big style={{ flex: 1, minWidth: 0 }} label={t("diesel")} icon="fuel" tone="green"
+            value={hasResult ? `${oil} ${t("litre")}` : "—"} sub={hasResult ? undefined : t("pickPumpHint")} />
+          <Tile big style={{ flex: 1, minWidth: 0 }} label={t("totalAmount")} icon="cash" tone={total != null ? "green" : "indigo"}
+            value={total != null ? inr(total) : "—"}
+            sub={total != null ? `${oil} ${t("litre")} × ₹${priceNum}` : (!hasResult ? t("pickPumpHint") : t("enterPriceHint"))} />
+        </View>
 
         {/* selected pump details */}
         {hasResult && (

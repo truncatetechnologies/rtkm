@@ -93,27 +93,30 @@ function DotTexture({ color }) {
 }
 
 // Minimal, professional stat tile: dotted texture + visible tone gradient.
-export function Tile({ label, value, icon, tone = "indigo" }) {
+export function Tile({ label, value, icon, tone = "indigo", big = false, sub, style }) {
   const tones = {
     indigo: ["#818CF8", "#4F46E5"], green: ["#34D399", "#059669"], blue: ["#60A5FA", "#2563EB"],
     amber: ["#FBBF24", "#D97706"], teal: ["#2DD4BF", "#0D9488"], rose: ["#FB7185", "#E11D48"],
   };
   const grad = tones[tone] || tones.indigo;
   return (
-    <View style={[styles.tileShadow]}>
+    <View style={[styles.tileShadow, style]}>
       <BlurView intensity={30} tint="light" style={styles.tileBlur}>
-        <View style={styles.tileInner}>
-          <LinearGradient colors={[grad[1] + "26", "transparent"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+        <View style={[styles.tileInner, big && { paddingVertical: 16, minHeight: 132, justifyContent: "space-between" }]}>
+          <LinearGradient colors={[grad[1] + (big ? "33" : "26"), "transparent"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
           <DotTexture color={grad[1] + "30"} />
           <View style={styles.tileTop}>
             <Text style={styles.tileLabel} numberOfLines={1}>{label}</Text>
             {icon ? (
-              <LinearGradient colors={grad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.tileIcon, shadowSoft]}>
-                <MaterialCommunityIcons name={icon} size={16} color="#fff" />
+              <LinearGradient colors={grad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[{ width: big ? 40 : 28, height: big ? 40 : 28, borderRadius: big ? 13 : 9, alignItems: "center", justifyContent: "center" }, shadowSoft]}>
+                <MaterialCommunityIcons name={icon} size={big ? 22 : 16} color="#fff" />
               </LinearGradient>
             ) : null}
           </View>
-          <Text style={styles.tileVal} numberOfLines={1}>{value}</Text>
+          <View>
+            <Text style={[styles.tileVal, big && { fontSize: 30 }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.55}>{value}</Text>
+            {sub ? <Text style={{ fontSize: 11, color: C.sub, marginTop: 2, fontWeight: "600" }} numberOfLines={1}>{sub}</Text> : null}
+          </View>
         </View>
       </BlurView>
     </View>

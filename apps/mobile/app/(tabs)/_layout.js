@@ -1,10 +1,13 @@
+import { useEffect } from "react";
 import { Tabs } from "expo-router";
 import { StyleSheet } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { C } from "../../lib/theme";
+import { requestAllPermissions } from "../../lib/permissions";
 
 export default function TabsLayout() {
+  useEffect(() => { requestAllPermissions(); }, []); // ask for camera / notifications / location up front
   return (
     <Tabs
       screenOptions={{
@@ -29,7 +32,8 @@ export default function TabsLayout() {
     >
       <Tabs.Screen name="index" options={{ title: "Calculator", tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="calculator-variant" size={size} color={color} /> }} />
       <Tabs.Screen name="fleet" options={{ title: "My Fleet", tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="truck" size={size} color={color} /> }} />
-      <Tabs.Screen name="settings" options={{ title: "Settings", tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="cog" size={size} color={color} /> }} />
+      {/* Server URL is baked in — no user-facing Settings tab. */}
+      <Tabs.Screen name="settings" options={{ href: null }} />
     </Tabs>
   );
 }
