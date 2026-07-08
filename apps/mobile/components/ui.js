@@ -81,44 +81,30 @@ export function SectionTitle({ children, icon, right }) {
   );
 }
 
-// Faint dotted texture layer (mirrors web .kpi-dots). Dependency-free dot grid.
-function DotTexture({ color }) {
-  return (
-    <View pointerEvents="none" style={styles.dotWrap}>
-      {Array.from({ length: 72 }).map((_, i) => (
-        <View key={i} style={styles.dotCell}><View style={[styles.dot, { backgroundColor: color }]} /></View>
-      ))}
-    </View>
-  );
-}
-
-// Minimal, professional stat tile: dotted texture + visible tone gradient.
+// Clean, solid stat tile. Fills and clips its slot (flex:1 + overflow:hidden) so it can never
+// spill over a neighbour inside a fixed-height bento row. A faint tone-tinted top band + a solid
+// colour icon chip give it life without the fragile blur/gradient stacking that used to overlap.
 export function Tile({ label, value, icon, tone = "indigo", big = false, sub, style }) {
   const tones = {
-    indigo: ["#818CF8", "#4F46E5"], green: ["#34D399", "#059669"], blue: ["#60A5FA", "#2563EB"],
-    amber: ["#FBBF24", "#D97706"], teal: ["#2DD4BF", "#0D9488"], rose: ["#FB7185", "#E11D48"],
+    indigo: "#4F46E5", green: "#059669", blue: "#2563EB",
+    amber: "#D97706", teal: "#0D9488", rose: "#E11D48",
   };
-  const grad = tones[tone] || tones.indigo;
+  const clr = tones[tone] || tones.indigo;
   return (
-    <View style={[styles.tileShadow, style]}>
-      <BlurView intensity={30} tint="light" style={styles.tileBlur}>
-        <View style={[styles.tileInner, big && { paddingVertical: 16, minHeight: 132, justifyContent: "space-between" }]}>
-          <LinearGradient colors={[grad[1] + (big ? "33" : "26"), "transparent"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-          <DotTexture color={grad[1] + "30"} />
-          <View style={styles.tileTop}>
-            <Text style={styles.tileLabel} numberOfLines={1}>{label}</Text>
-            {icon ? (
-              <LinearGradient colors={grad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[{ width: big ? 40 : 28, height: big ? 40 : 28, borderRadius: big ? 13 : 9, alignItems: "center", justifyContent: "center" }, shadowSoft]}>
-                <MaterialCommunityIcons name={icon} size={big ? 22 : 16} color="#fff" />
-              </LinearGradient>
-            ) : null}
+    <View style={[styles.tileCard, big && styles.tileCardBig, style]}>
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: clr, opacity: 0.05 }]} />
+      <View style={styles.tileTop}>
+        <Text style={styles.tileLabel} numberOfLines={2}>{label}</Text>
+        {icon ? (
+          <View style={[styles.tileIcon, { width: big ? 40 : 30, height: big ? 40 : 30, borderRadius: big ? 13 : 10, backgroundColor: clr + "1F" }]}>
+            <MaterialCommunityIcons name={icon} size={big ? 22 : 17} color={clr} />
           </View>
-          <View>
-            <Text style={[styles.tileVal, big && { fontSize: 30 }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.55}>{value}</Text>
-            {sub ? <Text style={{ fontSize: 11, color: C.sub, marginTop: 2, fontWeight: "600" }} numberOfLines={1}>{sub}</Text> : null}
-          </View>
-        </View>
-      </BlurView>
+        ) : null}
+      </View>
+      <View>
+        <Text style={[styles.tileVal, big && { fontSize: 28 }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>{value}</Text>
+        {sub ? <Text style={styles.tileSub} numberOfLines={1}>{sub}</Text> : null}
+      </View>
     </View>
   );
 }
@@ -134,7 +120,7 @@ export function EmptyState({ icon = "inbox-outline", text }) {
 
 // Gradient header with a glass right-slot.
 // Light bento-style header: soft white panel, dark text, accent icon chip.
-export function GradientHeader({ title, subtitle, icon, right, onBack }) {
+export function GradientHeader({ title, subtitle, icon, right, onBack, onMenu }) {
   return (
     <View style={styles.gh}>
       <View style={styles.ghRow}>
@@ -142,6 +128,10 @@ export function GradientHeader({ title, subtitle, icon, right, onBack }) {
           {onBack ? (
             <TouchableOpacity onPress={onBack} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={styles.ghIcon}>
               <MaterialCommunityIcons name="arrow-left" size={22} color="#4F46E5" />
+            </TouchableOpacity>
+          ) : onMenu ? (
+            <TouchableOpacity onPress={onMenu} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={styles.ghIcon}>
+              <MaterialCommunityIcons name="menu" size={24} color="#4F46E5" />
             </TouchableOpacity>
           ) : icon ? <View style={styles.ghIcon}><MaterialCommunityIcons name={icon} size={22} color="#4F46E5" /></View> : null}
           <View style={{ flex: 1, minWidth: 0 }}>
@@ -213,16 +203,15 @@ const styles = StyleSheet.create({
   stepText: { fontSize: 16, fontWeight: "700", color: C.ink },
   sectionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: S.xl, marginBottom: S.md },
   sectionTitle: { fontSize: 17, fontWeight: "800", color: C.ink },
-  tileShadow: { flex: 1, minWidth: "44%", borderRadius: R.lg, ...shadowSoft },
-  tileBlur: { borderRadius: R.lg, overflow: "hidden", borderWidth: 1, borderColor: C.glassBorder },
-  tileInner: { padding: 12, backgroundColor: C.glass, overflow: "hidden" },
+  // alignSelf:flex-start stops the Yoga stretch quirk (flexBasis-0 items in a flexWrap row inside a
+  // ScrollView blow up to the full content height); flexBasis:44% gives a stable 2-per-row grid.
+  tileCard: { flexGrow: 1, flexShrink: 1, flexBasis: "44%", minWidth: "44%", minHeight: 88, alignSelf: "flex-start", borderRadius: R.lg, backgroundColor: C.card, borderWidth: 1, borderColor: "rgba(15,23,42,0.06)", padding: 13, justifyContent: "space-between", overflow: "hidden", ...shadowSoft },
+  tileCardBig: { minHeight: 116, padding: 16 },
   tileTop: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
-  tileIcon: { width: 28, height: 28, borderRadius: 9, alignItems: "center", justifyContent: "center" },
-  tileVal: { fontSize: 22, fontWeight: "800", marginTop: 5, color: C.ink, letterSpacing: -0.5 },
-  tileLabel: { flex: 1, fontSize: 10, fontWeight: "700", color: C.faint, textTransform: "uppercase", letterSpacing: 0.5, marginTop: 2, marginRight: 6 },
-  dotWrap: { ...StyleSheet.absoluteFillObject, flexDirection: "row", flexWrap: "wrap", opacity: 0.7 },
-  dotCell: { width: 15, height: 15, alignItems: "center", justifyContent: "center" },
-  dot: { width: 2, height: 2, borderRadius: 1 },
+  tileIcon: { alignItems: "center", justifyContent: "center" },
+  tileVal: { fontSize: 22, fontWeight: "800", marginTop: 8, color: C.ink, letterSpacing: -0.5 },
+  tileLabel: { flex: 1, fontSize: 10.5, fontWeight: "700", color: C.faint, textTransform: "uppercase", letterSpacing: 0.4, lineHeight: 14, marginTop: 3, marginRight: 8 },
+  tileSub: { fontSize: 11, color: C.sub, marginTop: 2, fontWeight: "600" },
   empty: { alignItems: "center", justifyContent: "center", padding: S.xxl },
   emptyText: { color: C.faint, marginTop: 8, fontSize: 14 },
   gh: { paddingTop: 52, paddingBottom: 14, paddingHorizontal: S.lg, backgroundColor: "rgba(255,255,255,0.92)", borderBottomLeftRadius: 22, borderBottomRightRadius: 22, borderBottomWidth: 1, borderColor: "rgba(15,23,42,0.06)", ...shadowSoft },

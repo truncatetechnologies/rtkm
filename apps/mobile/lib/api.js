@@ -91,6 +91,7 @@ export async function updateMember(id, payload) { return (await req(`/api/member
 export async function getTrucks(transportId) { return (await req(`/api/trucks?transportId=${transportId}`)).trucks; }
 export async function createTruck(payload) { return (await req("/api/trucks", { method: "POST", body: payload })).truck; }
 export async function updateTruck(id, payload) { return (await req(`/api/trucks/${id}`, { method: "PUT", body: payload })).truck; }
+export async function syncTruckVahan(id) { return (await req(`/api/trucks/${id}/vahan-sync`, { method: "POST", timeout: 30000 })).truck; }
 export async function getLoads(transportId) { return (await req(`/api/loads?transportId=${transportId}`)).loads; }
 export async function getShortages(transportId) { return (await req(`/api/shortages?transportId=${transportId}`)).shortages; }
 // Capture shortages early from Nayara delivery-confirmation emails (before the monthly freight PDF).
@@ -155,6 +156,9 @@ export async function revertUpload(id) { return req(`/api/uploads/${id}/revert`,
 
 // ---- Gmail import (connect happens on web; mobile scans + imports a connected inbox) ----
 export async function gmailStatus(transportId) { return (await req(`/api/integrations/gmail/status?transportId=${transportId}`)).gmail; }
+// Get the Google consent URL (opened in a browser); the callback stores the token server-side.
+export async function gmailConnectUrl(transportId) { return (await req(`/api/integrations/gmail/connect?transportId=${transportId}&format=json&platform=mobile`)).url; }
+export async function gmailDisconnect(transportId) { return req("/api/integrations/gmail/disconnect", { method: "POST", body: { transportId } }); }
 export async function gmailMessages(transportId) { return (await req(`/api/integrations/gmail/messages?transportId=${transportId}`)).messages; }
 export async function gmailImport(payload) { return req("/api/integrations/gmail/import", { method: "POST", body: payload }); }
 // Bulk: scan inbox and auto-file every statement (uses saved sender domains). Long-running.

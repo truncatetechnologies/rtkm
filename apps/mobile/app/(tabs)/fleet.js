@@ -1,15 +1,16 @@
-import { useCallback, useEffect, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert, Modal, Image, ActivityIndicator } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert, Modal, Image, ActivityIndicator, Animated, Dimensions } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
+import * as WebBrowser from "expo-web-browser";
 import { getUser, setToken, setUser, getServerUrl, getToken } from "../../lib/config";
 import {
-  login, ownerRegister, getTransports, updateTransport, wipeTransport, getMembers, createMember, updateMember, getTrucks, createTruck, updateTruck,
+  login, ownerRegister, getTransports, updateTransport, wipeTransport, getMembers, createMember, updateMember, getTrucks, createTruck, updateTruck, syncTruckVahan,
   getLoads, getShortages, syncDeliveries, getSpend, getMyLoads, getMyPayslips,
   uploadInvoice, uploadShortage, confirmInvoice, confirmShortage, setMealAllowance,
   getMaintenance, createMaintenance, getSalaries, generateSalary, paySalary, discardSalary,
   getLeaves, addLeave, deleteLeave,
-  getLedger, ackInvoice, uploadLedger, getDriverShortage, gmailStatus, gmailMessages, gmailImport, gmailImportAll,
+  getLedger, ackInvoice, uploadLedger, getDriverShortage, gmailStatus, gmailMessages, gmailImport, gmailImportAll, gmailConnectUrl, gmailDisconnect,
   getUploads, revertUpload, clearApiCache,
   getExtraOil, addExtraOil, deleteExtraOil, getExtraOilReport, getCompanies,
   getMyMeterReadings, getMeterReadings, submitMyMeterReading, submitMeterReading,
@@ -19,9 +20,95 @@ import {
 } from "../../lib/api";
 import { registerForPush } from "../../lib/push";
 import { C, R, S, shadow } from "../../lib/theme";
-import { Card, AppButton, Chip, Tile, GradientHeader, EmptyState, ScreenBg, MaterialCommunityIcons, LinearGradient } from "../../components/ui";
+import { Card, AppButton, Chip, Tile, GradientHeader, EmptyState, ScreenBg, Dropdown, MaterialCommunityIcons, LinearGradient } from "../../components/ui";
 
 const rupee = (n) => "₹" + Math.round(n || 0).toLocaleString("en-IN");
+
+// Government documents pulled from the VAHAN record, in display order.
+const TRUCK_DOCS = [
+  ["insuranceUpto", "Insurance"],
+  ["fitnessUpto", "Fitness / RC"],
+  ["puccUpto", "Pollution"],
+  ["permitUpto", "Permit"],
+  ["taxUpto", "Road tax"],
+];
+const fmtDocDate = (d) => (d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—");
+function truckDocStatus(expiry, soonDays = 30) {
+  if (!expiry) return { key: "unknown", color: "#94a3b8", label: "—" };
+  const dt = new Date(expiry);
+  if (isNaN(dt)) return { key: "unknown", color: "#94a3b8", label: "—" };
+  const daysLeft = Math.round((dt.getTime() - Date.now()) / 86400000);
+  if (daysLeft < 0) return { key: "expired", color: "#e11d48", label: "Expired" };
+  if (daysLeft <= soonDays) return { key: "soon", color: "#d97706", label: `${daysLeft}d` };
+  return { key: "ok", color: "#059669", label: "Valid" };
+}
+function truckHealthBadge(rc) {
+  if (!rc || rc.status !== "ok") return null;
+  let expired = 0, soon = 0;
+  for (const [k] of TRUCK_DOCS) {
+    const s = truckDocStatus(rc[k]).key;
+    if (s === "expired") expired++; else if (s === "soon") soon++;
+  }
+  if (expired) return { color: "#e11d48", label: `${expired} expired` };
+  if (soon) return { color: "#d97706", label: `${soon} expiring` };
+  return { color: "#059669", label: "All valid" };
+}
+
+// Truck card with government documents + expiry (VAHAN) and a sync button.
+function TruckDocCard({ truck, driverName, busy, onSync }) {
+  const rc = truck.rc;
+  const health = truckHealthBadge(rc);
+  return (
+    <View style={[{ backgroundColor: C.card, borderRadius: R.lg, borderWidth: 1, borderColor: "rgba(15,23,42,0.06)", padding: 14, marginBottom: 10 }, shadow]}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+        <View style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: "rgba(37,99,235,0.12)", alignItems: "center", justifyContent: "center" }}>
+          <MaterialCommunityIcons name={truck.type === "tanker" ? "tanker-truck" : "truck"} size={20} color="#2563eb" />
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={{ fontSize: 15, fontWeight: "800", color: C.ink }} numberOfLines={1}>{truck.name || truck.registrationNo}</Text>
+          <Text style={{ fontSize: 12, color: C.sub }} numberOfLines={1}>{truck.registrationNo || "no reg. no."} · {driverName}</Text>
+        </View>
+        {health ? (
+          <View style={{ backgroundColor: health.color + "1A", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+            <Text style={{ color: health.color, fontSize: 11, fontWeight: "800" }}>{health.label}</Text>
+          </View>
+        ) : null}
+      </View>
+
+      {rc?.status === "ok" ? (
+        <View style={{ marginTop: 10, gap: 6 }}>
+          {TRUCK_DOCS.map(([key, label]) => {
+            const st = truckDocStatus(rc[key]);
+            return (
+              <View key={key} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                <Text style={{ fontSize: 13, color: C.sub }}>{label}</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Text style={{ fontSize: 13, color: C.ink, fontWeight: "600" }}>{fmtDocDate(rc[key])}</Text>
+                  <View style={{ backgroundColor: st.color + "1A", borderRadius: 7, paddingHorizontal: 7, paddingVertical: 2, minWidth: 48, alignItems: "center" }}>
+                    <Text style={{ color: st.color, fontSize: 11, fontWeight: "800" }}>{st.label}</Text>
+                  </View>
+                </View>
+              </View>
+            );
+          })}
+          {(rc.makerModel || rc.ownerName) ? (
+            <Text style={{ marginTop: 4, fontSize: 11, color: C.faint }} numberOfLines={1}>{[rc.makerModel, rc.ownerName].filter(Boolean).join(" · ")}</Text>
+          ) : null}
+        </View>
+      ) : rc?.status === "error" ? (
+        <Text style={{ marginTop: 8, fontSize: 12.5, color: "#e11d48" }}>{rc.error || "Could not fetch record."}</Text>
+      ) : (
+        <Text style={{ marginTop: 8, fontSize: 12.5, color: C.faint }}>Not synced yet. Sync to pull insurance, fitness, pollution, permit &amp; tax expiry from VAHAN.</Text>
+      )}
+
+      <TouchableOpacity onPress={onSync} disabled={busy} activeOpacity={0.8}
+        style={{ marginTop: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: "rgba(79,70,229,0.10)", borderRadius: 10, paddingVertical: 10, opacity: busy ? 0.6 : 1 }}>
+        {busy ? <ActivityIndicator size="small" color="#4F46E5" /> : <MaterialCommunityIcons name="cloud-sync" size={18} color="#4F46E5" />}
+        <Text style={{ color: "#4F46E5", fontWeight: "700", fontSize: 14 }}>{busy ? "Syncing…" : rc?.status === "ok" ? "Re-sync VAHAN" : "Sync from VAHAN"}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
 
 // Multi-line payslip breakdown for the details dialog: base, additions, each deduction, net.
 function payslipDetail(p) {
@@ -277,17 +364,11 @@ function DriverFleet({ user, onLogout }) {
       <GradientHeader title={`Hi, ${user.name}`} subtitle="Driver" icon="account"
         right={<TouchableOpacity onPress={onLogout}><MaterialCommunityIcons name="logout" size={22} color={C.ink} /></TouchableOpacity>} />
       <ScrollView contentContainerStyle={{ padding: S.lg, paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
-        <View style={{ gap: 10 }}>
-          <View style={{ flexDirection: "row", gap: 10, height: 150 }}>
-            <Tile big style={{ flex: 1.5, minWidth: 0 }} label="Last payslip" value={lastSlip ? rupee(lastSlip.netPay) : "—"} icon="cash" tone="green" sub={lastSlip ? `net pay · ${lastSlip.period}` : "no payslip yet"} />
-            <View style={{ flex: 1, gap: 10, minWidth: 0 }}>
-              <Tile style={{ flex: 1, minWidth: 0 }} label="My trips" value={loads.length} icon="truck-check" />
-              <Tile style={{ flex: 1, minWidth: 0 }} label="Pending cut" value={rupee(pending)} icon="cash-minus" tone="rose" />
-            </View>
-          </View>
-          <View style={{ height: 84 }}>
-            <Tile style={{ flex: 1, minWidth: 0 }} label="Pending salary" value={rupee(summary.pendingSalary || 0)} icon="cash-clock" tone="amber" />
-          </View>
+        <View style={s.tiles}>
+          <Tile big style={{ flexBasis: "100%", minWidth: "100%" }} label="Last payslip" value={lastSlip ? rupee(lastSlip.netPay) : "—"} icon="cash" tone="green" sub={lastSlip ? `net pay · ${lastSlip.period}` : "no payslip yet"} />
+          <Tile label="My trips" value={loads.length} icon="truck-check" />
+          <Tile label="Pending cut" value={rupee(pending)} icon="cash-minus" tone="rose" />
+          <Tile label="Pending salary" value={rupee(summary.pendingSalary || 0)} icon="cash-clock" tone="amber" />
         </View>
         <View style={s.actionRow}>
           <AppButton title="Meter reading" icon="camera" onPress={() => setModal("meter")} style={{ flex: 1 }} />
@@ -372,12 +453,16 @@ function MeterReadingModal({ loads, onClose, onDone, drivers, onSubmit, title = 
   return (
     <Sheet title={title} onClose={onClose}>
       <Text style={s.fieldHint}>Trip</Text>
-      <View style={s.chips}>
-        {loads.length === 0 ? <Text style={s.rowMeta}>No trips yet.</Text> :
-          loads.slice(0, 30).map((l) => (
-            <Chip key={l.id} label={`${l.invoiceNumber || l.id.slice(-6)}${l.toLocation ? ` · ${l.toLocation}` : ""}`} active={loadId === l.id} onPress={() => setLoadId(l.id)} />
-          ))}
-      </View>
+      {loads.length === 0 ? <Text style={s.rowMeta}>No trips yet.</Text> : (
+        <Dropdown
+          icon="truck-fast"
+          placeholder="Pick a trip"
+          title="Select trip"
+          value={loadId}
+          onChange={setLoadId}
+          options={loads.map((l) => ({ value: l.id, label: `${l.invoiceNumber || l.id.slice(-6)}${l.toLocation ? ` · ${l.toLocation}` : ""}` }))}
+        />
+      )}
       {drivers && (
         <>
           <Text style={s.fieldHint}>Driver (optional — defaults to the trip's driver)</Text>
@@ -449,6 +534,85 @@ const MENU_COLOR = {
   alerts: "#D97706", meterReadings: "#2563EB", maintenance: "#059669", salaries: "#0D9488",
   reports: "#4F46E5", drivers: "#2563EB", trucks: "#059669", managers: "#7C3AED", uploads: "#6B7280", settings: "#4F46E5",
 };
+
+// Left slide-in navigation drawer — the primary section switcher (mirrors the web sidebar).
+// `items` = [{ key, label, icon, color, badge }]; the first item is the dashboard ("home").
+function NavDrawer({ open, onClose, current, onSelect, title, subtitle, items, onUpload }) {
+  const width = Math.min(Dimensions.get("window").width * 0.84, 340);
+  const tx = useRef(new Animated.Value(-width)).current;
+  const [mounted, setMounted] = useState(open);
+  useEffect(() => {
+    if (open) {
+      setMounted(true);
+      Animated.timing(tx, { toValue: 0, duration: 220, useNativeDriver: true }).start();
+    } else if (mounted) {
+      Animated.timing(tx, { toValue: -width, duration: 190, useNativeDriver: true }).start(({ finished }) => { if (finished) setMounted(false); });
+    }
+  }, [open]);
+  if (!mounted) return null;
+  const backdrop = tx.interpolate({ inputRange: [-width, 0], outputRange: [0, 0.45] });
+  return (
+    <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
+      <View style={{ flex: 1, flexDirection: "row" }}>
+        <Animated.View style={[dr.panel, { width, transform: [{ translateX: tx }] }]}>
+          <View style={dr.head}>
+            <View style={dr.brand}><MaterialCommunityIcons name="truck-fast" size={22} color="#4F46E5" /></View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={dr.headTitle} numberOfLines={1}>{title}</Text>
+              {subtitle ? <Text style={dr.headSub} numberOfLines={1}>{subtitle}</Text> : null}
+            </View>
+            <TouchableOpacity onPress={onClose} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+              <MaterialCommunityIcons name="close" size={22} color={C.sub} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingVertical: 8 }} showsVerticalScrollIndicator={false}>
+            {items.map((it) => {
+              const active = it.key === current;
+              const clr = it.color || "#4F46E5";
+              return (
+                <TouchableOpacity key={it.key} onPress={() => onSelect(it.key)} activeOpacity={0.7} style={[dr.row, active && dr.rowActive]}>
+                  <View style={[dr.rowIcon, { backgroundColor: active ? clr : clr + "1A" }]}>
+                    <MaterialCommunityIcons name={it.icon} size={19} color={active ? "#fff" : clr} />
+                  </View>
+                  <Text style={[dr.rowLabel, active && { color: C.ink, fontWeight: "800" }]} numberOfLines={1}>{it.label}</Text>
+                  {it.badge > 0 ? <View style={dr.badge}><Text style={dr.badgeText}>{it.badge > 99 ? "99+" : it.badge}</Text></View> : null}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          {onUpload ? (
+            <View style={dr.footer}>
+              <TouchableOpacity onPress={onUpload} activeOpacity={0.85} style={dr.upload}>
+                <MaterialCommunityIcons name="cloud-upload" size={20} color="#fff" />
+                <Text style={dr.uploadText}>Upload document</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+        </Animated.View>
+        <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={onClose}>
+          <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: "#0f172a", opacity: backdrop }]} />
+        </TouchableOpacity>
+      </View>
+    </Modal>
+  );
+}
+
+const dr = StyleSheet.create({
+  panel: { backgroundColor: "#fff", paddingTop: 54, borderTopRightRadius: 24, borderBottomRightRadius: 24, ...shadow },
+  head: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: "rgba(15,23,42,0.06)" },
+  brand: { width: 40, height: 40, borderRadius: 12, backgroundColor: "rgba(79,70,229,0.1)", alignItems: "center", justifyContent: "center" },
+  headTitle: { fontSize: 16, fontWeight: "800", color: C.ink },
+  headSub: { fontSize: 12, color: C.sub, marginTop: 1 },
+  row: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 11, paddingHorizontal: 14, marginHorizontal: 8, borderRadius: 12 },
+  rowActive: { backgroundColor: "rgba(79,70,229,0.08)" },
+  rowIcon: { width: 34, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  rowLabel: { flex: 1, fontSize: 14.5, fontWeight: "600", color: C.sub },
+  badge: { minWidth: 20, height: 20, paddingHorizontal: 5, borderRadius: 10, backgroundColor: "#D97706", alignItems: "center", justifyContent: "center" },
+  badgeText: { color: "#fff", fontSize: 11, fontWeight: "800" },
+  footer: { padding: 12, borderTopWidth: 1, borderTopColor: "rgba(15,23,42,0.06)" },
+  upload: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: C.green, paddingVertical: 14, borderRadius: 14 },
+  uploadText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+});
 
 const EXTRA_REASONS = [
   ["breakdown", "Breakdown"],
@@ -556,6 +720,8 @@ function OwnerFleet({ user, onLogout }) {
   const [firstLoad, setFirstLoad] = useState(true); // show a spinner until the first data load finishes
   const [delivBusy, setDelivBusy] = useState(false);
   const [modal, setModal] = useState(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [vahanBusy, setVahanBusy] = useState(null); // truck id being synced from VAHAN
 
   useEffect(() => {
     if (user.role === "owner") getTransports().then((t) => { setTransports(t); if (!tid && t[0]) setTid(t[0].id); }).catch(() => {});
@@ -636,6 +802,13 @@ function OwnerFleet({ user, onLogout }) {
 
   const t = spend?.totals || { total: 0, fuel: 0, trips: 0, trucks: 0, drivers: 0, shortageL: 0, maintenance: 0, oilLiters: 0 };
   const activeTransport = transports.find((x) => x.id === tid) || null;
+  const drawerItems = [
+    { key: "home", label: "Overview", icon: "view-dashboard", color: "#0D9488" },
+    ...MENU.filter((m) => !(m.key === "settings" && user.role !== "owner")).map((m) => ({
+      key: m.key, label: m.label, icon: m.icon, color: MENU_COLOR[m.key] || "#4F46E5",
+      badge: m.key === "ledger" ? (t.pendingInvoice || 0) : m.key === "alerts" ? (alerts.total || 0) : m.key === "gatein" ? (gateIn.total || 0) : 0,
+    })),
+  ];
   const driverName = (id) => drivers.find((d) => d.id === id)?.name || "—";
   const truckName = (id) => { const tk = trucks.find((x) => x.id === id); return tk ? (tk.name || tk.registrationNo) : "—"; };
   function markPaid(p) {
@@ -656,6 +829,13 @@ function OwnerFleet({ user, onLogout }) {
       { text: "Delete", style: "destructive", onPress: async () => { try { await deleteExtraOil(e.id); refresh(); } catch (err) { Alert.alert("Error", String(err.message || err)); } } },
     ]);
   }
+  async function syncVahan(truck) {
+    if (!truck.registrationNo) { Alert.alert("Registration number", "Add a registration number for this truck first."); return; }
+    setVahanBusy(truck.id);
+    try { await syncTruckVahan(truck.id); await refresh(); }
+    catch (e) { Alert.alert("VAHAN sync failed", String(e.message || e)); await refresh(); }
+    finally { setVahanBusy(null); }
+  }
   async function undoUpload(u) {
     if (u.reverted) return;
     Alert.alert("Undo this upload?", `This removes everything this ${UPLOAD_KIND[u.kind]?.label || "upload"} created${u.affectedCount ? " and un-settles the deliveries it settled" : ""}. This cannot be undone.`, [
@@ -672,8 +852,7 @@ function OwnerFleet({ user, onLogout }) {
       <GradientHeader
         title={tab === "home" ? user.name : (SECTION_LABEL[tab] || "")}
         subtitle={tab === "home" ? `Transport ${user.role}` : (activeTransport?.name || "")}
-        icon="truck-fast"
-        onBack={tab !== "home" ? () => setTab("home") : undefined}
+        onMenu={() => setDrawerOpen(true)}
         right={
           <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
             <TouchableOpacity onPress={openNotifs}>
@@ -687,7 +866,12 @@ function OwnerFleet({ user, onLogout }) {
             <TouchableOpacity onPress={onLogout}><MaterialCommunityIcons name="logout" size={22} color={C.ink} /></TouchableOpacity>
           </View>
         } />
-      <ScrollView contentContainerStyle={{ padding: S.lg, paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
+      <NavDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} current={tab}
+        title={activeTransport?.name || user.name} subtitle={`Transport ${user.role}`}
+        items={drawerItems}
+        onSelect={(k) => { setTab(k); setDrawerOpen(false); }}
+        onUpload={tid ? () => { setDrawerOpen(false); setModal("ledgerAuto"); } : undefined} />
+      <ScrollView contentContainerStyle={{ padding: S.lg, paddingBottom: 130 }} showsVerticalScrollIndicator={false}>
         {user.role === "owner" && transports.length > 0 && (
           <View style={[s.chips, { marginBottom: S.md }]}>
             {transports.map((tr) => <Chip key={tr.id} label={tr.name} icon="domain" active={tid === tr.id} onPress={() => setTid(tr.id)} />)}
@@ -720,38 +904,36 @@ function OwnerFleet({ user, onLogout }) {
                   ))}
                 </ScrollView>
 
-                {/* Bento grid — money + fleet at a glance */}
-                <View style={{ gap: 10, marginTop: S.md }}>
-                  <View style={{ flexDirection: "row", gap: 10, height: 150 }}>
-                    <Tile big style={{ flex: 1.5, minWidth: 0 }} label="Total spend" value={rupee(t.total)} icon="cash-multiple" tone="green" sub={`${t.trips || 0} trips`} />
-                    <View style={{ flex: 1, gap: 10, minWidth: 0 }}>
-                      <Tile style={{ flex: 1, minWidth: 0 }} label="Trucks" value={t.trucks} icon="dump-truck" />
-                      <Tile style={{ flex: 1, minWidth: 0 }} label="Drivers" value={t.drivers} icon="account-group" tone="blue" />
-                    </View>
-                  </View>
-                  <View style={{ flexDirection: "row", gap: 10, height: 84 }}>
-                    <Tile style={{ minWidth: 0 }} label="Diesel" value={`${Math.round(t.oilLiters || 0)}L`} icon="fuel" tone="blue" />
-                    <Tile style={{ minWidth: 0 }} label="Tolls" value={rupee(t.fastag)} icon="boom-gate" tone="indigo" />
-                    <Tile style={{ minWidth: 0 }} label="Fuel ₹" value={rupee(t.fuel)} icon="fuel" tone="green" />
-                  </View>
-                  <View style={{ flexDirection: "row", gap: 10, height: 84 }}>
-                    <Tile style={{ minWidth: 0 }} label="Meal" value={rupee(t.mealAllowance)} icon="food" tone="teal" />
-                    <Tile style={{ minWidth: 0 }} label="Extra diesel" value={`${Math.round(t.extraOilL || 0)}L`} icon="fuel" tone="rose" />
-                  </View>
-                  <View style={{ flexDirection: "row", gap: 10, height: 84 }}>
-                    <Tile style={{ minWidth: 0 }} label="Invoices pending" value={t.pendingInvoice || 0} icon="file-alert" tone="amber" />
-                    <Tile style={{ minWidth: 0 }} label="Shortage" value={`${(t.shortageL || 0).toFixed(0)}L`} icon="alert" tone="rose" />
-                  </View>
+                {/* Money + fleet at a glance — full-width hero, then a clean 2-col grid */}
+                <View style={[s.tiles, { marginTop: S.md }]}>
+                  <Tile big style={{ flexBasis: "100%", minWidth: "100%" }} label="Total spend" value={rupee(t.total)} icon="cash-multiple" tone="green" sub={`${t.trips || 0} trips`} />
+                  <Tile label="Trucks" value={t.trucks} icon="dump-truck" />
+                  <Tile label="Drivers" value={t.drivers} icon="account-group" tone="blue" />
+                  <Tile label="Diesel" value={`${Math.round(t.oilLiters || 0)}L`} icon="fuel" tone="blue" />
+                  <Tile label="Fuel ₹" value={rupee(t.fuel)} icon="fuel" tone="green" />
+                  <Tile label="Tolls" value={rupee(t.fastag)} icon="boom-gate" tone="indigo" />
+                  <Tile label="Meal" value={rupee(t.mealAllowance)} icon="food" tone="teal" />
+                  <Tile label="Invoices pending" value={t.pendingInvoice || 0} icon="file-alert" tone="amber" />
+                  <Tile label="Shortage" value={`${(t.shortageL || 0).toFixed(0)}L`} icon="alert" tone="rose" />
+                  <Tile label="Extra diesel" value={`${Math.round(t.extraOilL || 0)}L`} icon="fuel" tone="rose" />
                 </View>
 
-                {/* Bento MENU — tap a section (replaces the chip row) */}
-                <Text style={[s.section, { marginTop: S.lg }]}>Menu</Text>
+                {/* Quick access — the full list lives in the ☰ drawer */}
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: S.lg, marginBottom: S.md }}>
+                  <Text style={s.section}>Quick access</Text>
+                  <TouchableOpacity onPress={() => setDrawerOpen(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <MaterialCommunityIcons name="menu" size={16} color="#4F46E5" />
+                    <Text style={{ color: "#4F46E5", fontWeight: "700", fontSize: 13 }}>All sections</Text>
+                  </TouchableOpacity>
+                </View>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-                  {MENU.map((m) => {
+                  {[
+                    { key: "ledger", label: "Statement Of Freight", icon: "clipboard-list", badge: t.pendingInvoice || 0 },
+                    { key: "shortages", label: "Shortage Cuts", icon: "alert", badge: 0 },
+                    { key: "salaries", label: "Salaries", icon: "cash", badge: 0 },
+                    { key: "alerts", label: "Alerts", icon: "bell-alert", badge: alerts.total || 0 },
+                  ].map((m) => {
                     const clr = MENU_COLOR[m.key] || "#4F46E5";
-                    const badge = m.key === "ledger" ? (t.pendingInvoice || 0)
-                      : m.key === "alerts" ? (alerts.total || 0)
-                      : m.key === "gatein" ? (gateIn.total || 0) : 0;
                     return (
                       <TouchableOpacity key={m.key} onPress={() => setTab(m.key)} activeOpacity={0.8} style={{ width: "48%" }}>
                         <View style={[{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: C.card, borderRadius: R.lg, padding: 14, borderWidth: 1, borderColor: "rgba(15,23,42,0.06)" }, shadow]}>
@@ -759,9 +941,9 @@ function OwnerFleet({ user, onLogout }) {
                             <MaterialCommunityIcons name={m.icon} size={22} color={clr} />
                           </View>
                           <Text style={{ flex: 1, fontSize: 13, fontWeight: "700", color: C.ink }} numberOfLines={2}>{m.label}</Text>
-                          {badge > 0 ? (
+                          {m.badge > 0 ? (
                             <View style={{ minWidth: 20, height: 20, paddingHorizontal: 5, borderRadius: 10, backgroundColor: C.amber, alignItems: "center", justifyContent: "center" }}>
-                              <Text style={{ color: "#fff", fontSize: 11, fontWeight: "800" }}>{badge > 99 ? "99+" : badge}</Text>
+                              <Text style={{ color: "#fff", fontSize: 11, fontWeight: "800" }}>{m.badge > 99 ? "99+" : m.badge}</Text>
                             </View>
                           ) : null}
                         </View>
@@ -791,6 +973,7 @@ function OwnerFleet({ user, onLogout }) {
 
             {tab === "settings" && user.role === "owner" && activeTransport && (
               <View style={{ marginTop: S.md }}>
+                <GmailCard transportId={tid} />
                 <OilAvgCard transport={activeTransport} onSaved={refresh} />
                 <DangerCard transport={activeTransport} onWiped={refresh} />
               </View>
@@ -858,9 +1041,12 @@ function OwnerFleet({ user, onLogout }) {
             {tab === "trucks" && (
               <View style={{ marginTop: S.md }}>
                 <AppButton title="Add truck" icon="truck-plus" onPress={() => setModal("truck")} />
+                <Text style={[s.rowMeta, { marginTop: S.md }]}>Sync a truck to pull its government documents (insurance, fitness, pollution, permit, road tax) and expiry dates from the VAHAN / Parivahan portal.</Text>
                 <View style={{ height: S.md }} />
                 {trucks.length === 0 ? <EmptyState icon="dump-truck" text="No trucks" /> :
-                  trucks.map((tr) => <ListRow key={tr.id} icon="truck" title={tr.name || tr.registrationNo} meta={`${tr.type} · ${tr.averageKmL} km/L`} right={driverName(tr.assignedDriverId)} />)}
+                  trucks.map((tr) => (
+                    <TruckDocCard key={tr.id} truck={tr} driverName={driverName(tr.assignedDriverId)} busy={vahanBusy === tr.id} onSync={() => syncVahan(tr)} />
+                  ))}
               </View>
             )}
 
@@ -904,17 +1090,20 @@ function OwnerFleet({ user, onLogout }) {
                     <View key={g.shipmentNo || g.loads[0].id} style={s.shipCard}>
                       <View style={s.shipHead}>
                         <MaterialCommunityIcons name="truck-fast" size={15} color="#4338ca" />
-                        <Text style={s.shipTitle}>{g.shipmentNo ? `Shipment ${g.shipmentNo}` : "Single load"}</Text>
-                        <Text style={s.shipMeta}>{g.pumps} pump{g.pumps > 1 ? "s" : ""} · {g.cargo.toLocaleString("en-IN")}L</Text>
-                        <View style={{ flex: 1 }} />
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={s.shipTitle} numberOfLines={1}>{g.shipmentNo ? `Shipment ${g.shipmentNo}` : "Single load"}</Text>
+                          <Text style={s.shipMeta} numberOfLines={1}>{g.pumps} pump{g.pumps > 1 ? "s" : ""} · {g.cargo.toLocaleString("en-IN")}L</Text>
+                        </View>
                         {ft && ft.toll > 0 && (
-                          <TouchableOpacity onPress={() => Alert.alert(`FASTag tolls · ${rupee(ft.toll)}`, `${ft.count} pass${ft.count === 1 ? "" : "es"} matched to this trip by date:\n\n` + (ft.items || []).map((it) => `${fmtDay(it.date)} · ${it.plaza} · ${rupee(it.amount)}`).join("\n"))} activeOpacity={0.7} style={{ flexDirection: "row", alignItems: "center", marginRight: 8 }}>
+                          <TouchableOpacity onPress={() => Alert.alert(`FASTag tolls · ${rupee(ft.toll)}`, `${ft.count} pass${ft.count === 1 ? "" : "es"} matched to this trip by date:\n\n` + (ft.items || []).map((it) => `${fmtDay(it.date)} · ${it.plaza} · ${rupee(it.amount)}`).join("\n"))} activeOpacity={0.7} style={{ flexDirection: "row", alignItems: "center", gap: 2, flexShrink: 0 }}>
                             <MaterialCommunityIcons name="boom-gate" size={14} color="#7c3aed" />
-                            <Text style={[s.shipOil, { color: "#7c3aed" }]}>{rupee(ft.toll)}</Text>
+                            <Text style={[s.shipOil, { color: "#7c3aed" }]} numberOfLines={1}>{rupee(ft.toll)}</Text>
                           </TouchableOpacity>
                         )}
-                        <MaterialCommunityIcons name="fuel" size={14} color="#2563eb" />
-                        <Text style={s.shipOil}>{g.oil}{g.extraL > 0 ? `+${g.extraL}` : ""} L · {rupee(g.oilCost + g.extraCost)}</Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 3, flexShrink: 0 }}>
+                          <MaterialCommunityIcons name="fuel" size={14} color="#2563eb" />
+                          <Text style={s.shipOil} numberOfLines={1}>{g.oil}{g.extraL > 0 ? `+${g.extraL}` : ""} L · {rupee(g.oilCost + g.extraCost)}</Text>
+                        </View>
                       </View>
                       <Text style={s.shipSub}>
                         {g.pumps > 1 ? `Farthest ${g.maxRtkm} km · freight ${rupee(g.freight)} · ` : ""}
@@ -1904,6 +2093,91 @@ function AddTruckModal({ transportId, drivers, onClose, onDone }) {
 
 function CancelBtn({ onClose }) {
   return <TouchableOpacity onPress={onClose} style={s.cancel}><Text style={s.cancelText}>Cancel</Text></TouchableOpacity>;
+}
+
+// Gmail import setup — status + sender domains + "import all". Connecting Gmail is a browser OAuth
+// flow, so it's done once on the web dashboard; here we import from that shared connection.
+function GmailCard({ transportId }) {
+  const [status, setStatus] = useState(null);
+  const [checked, setChecked] = useState(false);
+  const [senders, setSenders] = useState("");
+  const [days, setDays] = useState(365);
+  const [busy, setBusy] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  function loadStatus() {
+    return gmailStatus(transportId)
+      .then((s) => { setStatus(s || { connected: false }); if (s?.senders?.length) setSenders(s.senders.join(", ")); setChecked(true); return s; })
+      .catch(() => { setStatus({ connected: false }); setChecked(true); });
+  }
+  useEffect(() => { loadStatus(); }, [transportId]);
+  async function connect() {
+    setConnecting(true);
+    try {
+      const url = await gmailConnectUrl(transportId);
+      if (!url || !/^https?:\/\//.test(String(url))) {
+        throw new Error("Couldn't get the Google sign-in link. Your server needs the latest update — deploy it (or point the app's Server URL at the updated server), then try again.");
+      }
+      // Opens Google consent in a browser; the callback stores the token, then shows a "return to app" page.
+      await WebBrowser.openBrowserAsync(String(url));
+      const s = await loadStatus(); // re-check after the user finishes + closes the browser
+      if (s?.connected) Alert.alert("Gmail connected", `Connected as ${s.email || "your account"}. You can import now.`);
+    } catch (e) { Alert.alert("Couldn't connect Gmail", String(e.message || e)); } finally { setConnecting(false); }
+  }
+  function disconnect() {
+    Alert.alert("Disconnect Gmail?", "The app will stop reading this inbox until you reconnect.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Disconnect", style: "destructive", onPress: async () => { try { await gmailDisconnect(transportId); loadStatus(); } catch (e) { Alert.alert("Error", String(e.message || e)); } } },
+    ]);
+  }
+  async function importAll() {
+    setBusy(true);
+    try {
+      const sList = senders.split(/[\n,]+/).map((x) => x.trim()).filter(Boolean);
+      const r = await gmailImportAll(transportId, sList, days);
+      const c = r.counts || {};
+      const lines = [["Invoices", c.invoice], ["Freight statements", c.freight], ["Payments", c.payment], ["FASTag", c.fastag], ["Duplicates skipped", c.duplicates], ["Before start date", c.skipped], ["Unrecognised", c.unrecognised]]
+        .filter(([, n]) => n > 0).map(([l, n]) => `${l}: ${n}`).join("\n");
+      Alert.alert(`Scanned ${r.scanned} · imported ${r.imported}`, lines || "Nothing new to import.");
+    } catch (e) { Alert.alert("Error", String(e.message || e)); } finally { setBusy(false); }
+  }
+  const PERIODS = [[30, "30 days"], [90, "90 days"], [365, "1 year"], [730, "2 years"]];
+  return (
+    <Card style={{ marginBottom: S.md }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
+        <MaterialCommunityIcons name="email-sync-outline" size={20} color={C.red} />
+        <Text style={{ fontSize: 16, fontWeight: "800", color: C.ink }}>Gmail import</Text>
+      </View>
+      {!checked ? <Text style={s.fieldHint}>Checking Gmail…</Text> : !status?.connected ? (
+        <>
+          <Text style={s.fieldHint}>Connect your Gmail once and the app pulls in invoices, freight statements, payments, FASTag, gate-in &amp; expiry alerts automatically — no web dashboard needed.</Text>
+          <AppButton title={connecting ? "Opening Google…" : "Connect Gmail"} icon="google" onPress={connect} loading={connecting} style={{ marginTop: 12 }} />
+          <Text style={[s.fieldHint, { marginTop: 6 }]}>Opens Google sign-in in your browser. Read-only — we only read attachments &amp; depot mails.</Text>
+        </>
+      ) : (
+        <>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <Text style={[s.fieldHint, { flex: 1 }]}>Connected as {status.email || "your account"}. Auto-files invoices, freight statements, payments &amp; FASTag. Already-imported mails are skipped.</Text>
+            <TouchableOpacity onPress={disconnect}><Text style={{ color: C.red, fontWeight: "700", fontSize: 12.5, marginLeft: 8 }}>Disconnect</Text></TouchableOpacity>
+          </View>
+          <Text style={[s.section, { marginTop: 10 }]}>Only from these senders (optional)</Text>
+          <View style={[s.inputWrap, { marginBottom: 0 }]}>
+            <MaterialCommunityIcons name="at" size={18} color={C.faint} />
+            <TextInput style={s.input} value={senders} onChangeText={setSenders} autoCapitalize="none" keyboardType="email-address" placeholder="@nayaraenergy.com, @blackbuck.com" placeholderTextColor={C.faint} />
+          </View>
+          <Text style={[s.fieldHint, { marginTop: 4 }]}>A domain catches every email from or to that company. Leave blank to import from everyone.</Text>
+          <Text style={[s.section, { marginTop: 10 }]}>Period</Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 }}>
+            {PERIODS.map(([d, lbl]) => (
+              <TouchableOpacity key={d} onPress={() => setDays(d)} style={{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: R.md, borderWidth: 1, borderColor: days === d ? C.blue : C.line, backgroundColor: days === d ? C.blueLight : "transparent" }}>
+                <Text style={{ fontSize: 13, fontWeight: "700", color: days === d ? C.blue : C.sub }}>{lbl}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <AppButton title={busy ? "Importing… keep open" : "Import all now"} icon="cloud-download" onPress={importAll} loading={busy} style={{ marginTop: 12 }} />
+        </>
+      )}
+    </Card>
+  );
 }
 
 function OilAvgCard({ transport, onSaved }) {
