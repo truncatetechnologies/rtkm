@@ -16,6 +16,7 @@ import { AppContext } from "@/lib/appContext";
 import { api, getActiveTransport, setActiveTransport, getActiveCompany, setActiveCompany, companyLabel } from "@/lib/clientApi";
 import UploadFab from "@/components/UploadFab";
 import NotificationBell from "@/components/NotificationBell";
+import { GlobalLoadingBar } from "@/components/ui";
 
 // Day-to-day operations — shown at the top, always expanded.
 const OPS_NAV = [
@@ -119,6 +120,7 @@ export default function AppLayout({ children }) {
 
   return (
     <AppContext.Provider value={{ me, transports, activeId, switchTransport, reloadTransports, companies, activeCompany, switchCompany }}>
+      <GlobalLoadingBar />
       <Box sx={{ display: "flex", minHeight: "100vh" }}>
         {!isDriver && (
           <Box component="aside" className="glass"

@@ -3,6 +3,7 @@
 // Badge, Table/Td/Tr, Modal, Tile, IconButton, useConfirm, rupee, cn) so pages keep working.
 // Icons are MUI icons (from @/components/icons) passed as `Icon` props; they accept a `size` prop.
 import { useEffect, useState, useRef } from "react";
+import { onApiActivity } from "@/lib/clientApi";
 import MuiButton from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import Paper from "@mui/material/Paper";
@@ -94,6 +95,65 @@ export function PageLoader({ label = "Loading…" }) {
     <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", py: 12, gap: 2 }}>
       <CircularProgress size={34} thickness={4} />
       <Typography sx={{ fontSize: 14, color: "text.secondary" }}>{label}</Typography>
+    </Box>
+  );
+}
+
+// Thin indeterminate bar pinned to the top of the viewport whenever ANY api() request is in
+// flight — so changing a filter always shows activity instead of looking frozen. Mounted once
+// in the app layout; driven by the global tracker in clientApi (never throws).
+export function GlobalLoadingBar() {
+  const [active, setActive] = useState(false);
+  useEffect(() => onApiActivity(setActive), []);
+  return (
+    <Box aria-hidden sx={{ position: "fixed", top: 0, left: 0, right: 0, height: 3, zIndex: 2000, pointerEvents: "none", overflow: "hidden", opacity: active ? 1 : 0, transition: "opacity .25s ease" }}>
+      <Box sx={{ position: "absolute", top: 0, height: "100%", borderRadius: 999, backgroundImage: "linear-gradient(90deg,#7c3aed,#4f46e5)", animation: active ? "rtkm-bar 1.1s ease-in-out infinite" : "none" }} />
+    </Box>
+  );
+}
+
+// A single shimmer block. Compose with the helpers below for tables/tiles.
+export function Skeleton({ w = "100%", h = 14, r = 8, sx }) {
+  return <Box className="rtkm-skeleton" sx={{ width: w, height: h, borderRadius: `${r}px`, ...sx }} />;
+}
+
+// Placeholder rows for a table (matches the <Table> look) — shown on first load only.
+export function SkeletonRows({ rows = 6, cols = 4 }) {
+  return (
+    <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 3, overflow: "hidden" }}>
+      {Array.from({ length: rows }).map((_, r) => (
+        <Box key={r} sx={{ display: "flex", gap: 2, px: 2, py: 1.6, borderBottom: r === rows - 1 ? "none" : "1px solid", borderColor: "divider" }}>
+          {Array.from({ length: cols }).map((__, c) => (
+            <Skeleton key={c} w={c === 0 ? "26%" : `${Math.floor(60 / (cols - 1))}%`} h={12} sx={{ opacity: 1 - r * 0.06 }} />
+          ))}
+        </Box>
+      ))}
+    </Box>
+  );
+}
+
+// Placeholder KPI tiles.
+export function SkeletonTiles({ count = 4 }) {
+  return (
+    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", sm: `repeat(${Math.min(count, 4)},1fr)` }, gap: 1.5 }}>
+      {Array.from({ length: count }).map((_, i) => (
+        <Box key={i} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 3, p: 1.75, display: "flex", flexDirection: "column", gap: 1 }}>
+          <Skeleton w="55%" h={10} />
+          <Skeleton w="72%" h={22} r={6} />
+        </Box>
+      ))}
+    </Box>
+  );
+}
+
+// Full-page fresh-load placeholder: a title bar, optional KPI tiles, then table rows. Self-contained
+// so pages can `return <SkeletonPage .../>` in their loading branch with no extra imports.
+export function SkeletonPage({ tiles = 0, rows = 6, cols = 4 }) {
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      <Skeleton w="38%" h={24} r={8} />
+      {tiles > 0 && <SkeletonTiles count={tiles} />}
+      <SkeletonRows rows={rows} cols={cols} />
     </Box>
   );
 }

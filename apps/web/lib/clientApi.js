@@ -2,9 +2,22 @@
 // Client-side API helper for the /app dashboard. Owner web auth uses the httpOnly cookie,
 // so same-origin fetches just work. The active transport is remembered in localStorage.
 
+// Global in-flight tracker → drives the top loading bar so a filter change never looks "stuck".
+let _inflight = 0;
+const _subs = new Set();
+function _notify() { const on = _inflight > 0; _subs.forEach((f) => { try { f(on); } catch { /* ignore */ } }); }
+export function onApiActivity(fn) { try { fn(_inflight > 0); } catch { /* ignore */ } _subs.add(fn); return () => _subs.delete(fn); }
+
+// Public entry: counts the request for the loading bar, then delegates to the real fetcher.
+export async function api(path, opts) {
+  _inflight++; _notify();
+  try { return await apiCore(path, opts); }
+  finally { _inflight = Math.max(0, _inflight - 1); _notify(); }
+}
+
 // Fetch with an abort timeout so slow connections fail fast instead of hanging,
 // and a single retry for idempotent GETs that time out / drop (common on weak networks).
-export async function api(path, { method = "GET", body, timeout = 20000, retries = 1 } = {}) {
+async function apiCore(path, { method = "GET", body, timeout = 20000, retries = 1 } = {}) {
   let lastErr;
   for (let attempt = 0; attempt <= retries; attempt++) {
     const ctrl = new AbortController();

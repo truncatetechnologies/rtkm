@@ -1,9 +1,64 @@
-import { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, ScrollView } from "react-native";
+import { useState, useEffect, useRef } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, ScrollView, Animated, Easing, Dimensions } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { C, R, S, shadow, shadowSoft } from "../lib/theme";
+import { onApiActivity } from "../lib/api";
+
+// Indeterminate top bar shown whenever any request is in flight — so a tab/filter change never
+// looks frozen. Mount once near the top of a screen. Never throws.
+export function LoadingBar() {
+  const [active, setActive] = useState(false);
+  const x = useRef(new Animated.Value(0)).current;
+  const W = Dimensions.get("window").width;
+  useEffect(() => onApiActivity(setActive), []);
+  useEffect(() => {
+    if (!active) { x.stopAnimation(); return; }
+    const anim = Animated.loop(Animated.timing(x, { toValue: 1, duration: 1100, easing: Easing.inOut(Easing.ease), useNativeDriver: true }));
+    x.setValue(0); anim.start();
+    return () => anim.stop();
+  }, [active]);
+  if (!active) return null;
+  const translateX = x.interpolate({ inputRange: [0, 1], outputRange: [-W * 0.4, W] });
+  return (
+    <View pointerEvents="none" style={{ height: 3, backgroundColor: "transparent", overflow: "hidden" }}>
+      <Animated.View style={{ position: "absolute", width: W * 0.4, height: 3, borderRadius: 999, backgroundColor: C.blue, transform: [{ translateX }] }} />
+    </View>
+  );
+}
+
+// Shimmering placeholder block for fresh-load skeletons.
+export function Skeleton({ w = "100%", h = 14, r = 8, style }) {
+  const o = useRef(new Animated.Value(0.5)).current;
+  useEffect(() => {
+    const anim = Animated.loop(Animated.sequence([
+      Animated.timing(o, { toValue: 1, duration: 700, useNativeDriver: true }),
+      Animated.timing(o, { toValue: 0.5, duration: 700, useNativeDriver: true }),
+    ]));
+    anim.start();
+    return () => anim.stop();
+  }, []);
+  return <Animated.View style={[{ width: w, height: h, borderRadius: r, backgroundColor: C.line, opacity: o }, style]} />;
+}
+
+// A few skeleton "rows" for list screens.
+export function SkeletonList({ rows = 6 }) {
+  return (
+    <View style={{ gap: 10, marginTop: S.md }}>
+      {Array.from({ length: rows }).map((_, i) => (
+        <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: R.md, borderWidth: 1, borderColor: C.line }}>
+          <Skeleton w={36} h={36} r={10} />
+          <View style={{ flex: 1, gap: 8 }}>
+            <Skeleton w="55%" h={12} />
+            <Skeleton w="35%" h={10} />
+          </View>
+          <Skeleton w={48} h={14} r={6} />
+        </View>
+      ))}
+    </View>
+  );
+}
 
 // Aurora gradient background with soft color blobs — gives glass something to frost.
 export function ScreenBg({ children, style }) {
@@ -141,6 +196,7 @@ export function GradientHeader({ title, subtitle, icon, right, onBack, onMenu })
         </View>
         {right ? <View style={{ flexShrink: 0, marginLeft: 8 }}>{right}</View> : null}
       </View>
+      <LoadingBar />
     </View>
   );
 }

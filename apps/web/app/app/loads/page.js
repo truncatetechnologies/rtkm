@@ -2,7 +2,7 @@
 import { useApp } from "@/lib/appContext";
 import { api } from "@/lib/clientApi";
 import { useApi } from "@/lib/useApi";
-import { Card, Table, Td, Tr, Badge, rupee, IconButton, useConfirm, PageLoader } from "@/components/ui";
+import { Card, Table, Td, Tr, Badge, rupee, IconButton, useConfirm, PageLoader, SkeletonPage } from "@/components/ui";
 import Box from "@mui/material/Box";
 import { Trash2, Fuel } from "@/components/icons";
 
@@ -21,7 +21,7 @@ export default function Loads() {
   const driverName = (id) => drivers.find((d) => d.id === id)?.name || "—";
 
   if (!activeId) return <Card>Select or create a transport first.</Card>;
-  if (isLoading && !loadsData) return <PageLoader label="Loading loads…" />;
+  if (isLoading && !loadsData) return <SkeletonPage cols={6} />;
 
   return (
     <Box>

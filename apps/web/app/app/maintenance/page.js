@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useApp } from "@/lib/appContext";
 import { api } from "@/lib/clientApi";
 import { useApi } from "@/lib/useApi";
-import { Card, Button, Modal, Field, Input, Select, Table, Td, Tr, rupee, IconButton, useConfirm, PageLoader } from "@/components/ui";
+import { Card, Button, Modal, Field, Input, Select, Table, Td, Tr, rupee, IconButton, useConfirm, PageLoader, SkeletonPage } from "@/components/ui";
 import Box from "@mui/material/Box";
 import { DatePicker } from "@/components/DatePicker";
 import { Plus, Trash2 } from "@/components/icons";
@@ -32,7 +32,7 @@ export default function MaintenancePage() {
   const truckName = (id) => trucks.find((t) => t.id === id)?.name || trucks.find((t) => t.id === id)?.registrationNo || "—";
 
   if (!activeId) return <Card>Select or create a transport first.</Card>;
-  if (isLoading && !maintenanceData) return <PageLoader label="Loading maintenance…" />;
+  if (isLoading && !maintenanceData) return <SkeletonPage cols={5} />;
 
   return (
     <Box>

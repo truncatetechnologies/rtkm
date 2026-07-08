@@ -5,7 +5,7 @@ import Typography from "@mui/material/Typography";
 import { useApp } from "@/lib/appContext";
 import { useApi } from "@/lib/useApi";
 import { uploadMeterReading } from "@/lib/clientApi";
-import { Card, Button, Modal, Field, Input, Select, Table, Td, Tr, Badge, PageLoader } from "@/components/ui";
+import { Card, Button, Modal, Field, Input, Select, Table, Td, Tr, Badge, PageLoader, SkeletonPage } from "@/components/ui";
 import { Plus } from "@/components/icons";
 
 export default function MeterReadings() {
@@ -22,7 +22,7 @@ export default function MeterReadings() {
   const driverById = Object.fromEntries(drivers.map((d) => [d.id, d.name]));
 
   if (!activeId) return <Card>Select or create a transport first.</Card>;
-  if (isLoading && !data) return <PageLoader label="Loading meter readings…" />;
+  if (isLoading && !data) return <SkeletonPage cols={5} />;
 
   return (
     <Box>

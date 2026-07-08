@@ -20,7 +20,7 @@ import {
 } from "../../lib/api";
 import { registerForPush } from "../../lib/push";
 import { C, R, S, shadow } from "../../lib/theme";
-import { Card, AppButton, Chip, Tile, GradientHeader, EmptyState, ScreenBg, Dropdown, MaterialCommunityIcons, LinearGradient } from "../../components/ui";
+import { Card, AppButton, Chip, Tile, GradientHeader, EmptyState, ScreenBg, Dropdown, SkeletonList, MaterialCommunityIcons, LinearGradient } from "../../components/ui";
 
 const rupee = (n) => "₹" + Math.round(n || 0).toLocaleString("en-IN");
 
@@ -224,7 +224,7 @@ function AdminTransportDetail({ id, onBack }) {
     return () => { alive = false; };
   }, [id, period]);
 
-  if (!d) return <ScreenBg><GradientHeader title="Transporter" icon="truck" /><View style={{ padding: S.lg }}><Text style={{ color: C.sub }}>Loading…</Text></View></ScreenBg>;
+  if (!d) return <ScreenBg><GradientHeader title="Transporter" icon="truck" /><View style={{ padding: S.lg }}><SkeletonList rows={6} /></View></ScreenBg>;
   const t = d.totals;
 
   return (

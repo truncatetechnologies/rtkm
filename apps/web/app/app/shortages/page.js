@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useApp } from "@/lib/appContext";
 import { api } from "@/lib/clientApi";
 import { useApi } from "@/lib/useApi";
-import { Card, Button, Table, Td, Tr, Badge, rupee, IconButton, useConfirm, PageLoader } from "@/components/ui";
+import { Card, Button, Table, Td, Tr, Badge, rupee, IconButton, useConfirm, PageLoader, SkeletonPage } from "@/components/ui";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { FileWarning, Ban, Mail } from "@/components/icons";
@@ -43,7 +43,7 @@ export default function Shortages() {
   const monthName = (m) => { if (!m) return "—"; const [y, mo] = m.split("-"); return new Date(Date.UTC(+y, +mo - 1, 1)).toLocaleString("en-IN", { month: "short", year: "numeric", timeZone: "UTC" }); };
 
   if (!activeId) return <Card>Select or create a transport first.</Card>;
-  if (isLoading && !shortagesData) return <PageLoader label="Loading shortages…" />;
+  if (isLoading && !shortagesData) return <SkeletonPage cols={6} />;
 
   const pendingAmt = items.filter((s) => s.status === "open").reduce((a, s) => a + (s.shortageValue || 0), 0);
   const deductedAmt = items.filter((s) => s.status === "deducted").reduce((a, s) => a + (s.shortageValue || 0), 0);

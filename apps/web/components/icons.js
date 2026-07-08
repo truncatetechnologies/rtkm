@@ -57,6 +57,8 @@ import Group from "@mui/icons-material/Group";
 import AccountBalanceWallet from "@mui/icons-material/AccountBalanceWallet";
 import Build from "@mui/icons-material/Build";
 import Close from "@mui/icons-material/Close";
+import Autorenew from "@mui/icons-material/Autorenew";
+import DownloadMui from "@mui/icons-material/Download";
 
 // Wrap a MUI icon so `size` (px) maps to fontSize and `color` (any CSS color) maps to sx.
 function ic(MuiIcon) {
@@ -117,6 +119,8 @@ export const Sparkles = ic(AutoAwesome);
 export const Trash2 = ic(DeleteOutline);
 export const TrendingDown = ic(TrendingDownMui);
 export const Truck = ic(LocalShipping);
+export const RefreshCw = ic(Autorenew);
+export const Download = ic(DownloadMui);
 export const Undo2 = ic(Undo);
 export const Upload = ic(FileUpload);
 export const UploadCloud = ic(CloudUpload);

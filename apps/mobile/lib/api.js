@@ -11,6 +11,12 @@ async function authHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+// Global in-flight tracker → drives the top loading bar so a filter/tab change shows activity.
+let _inflight = 0;
+const _subs = new Set();
+function _notify() { const on = _inflight > 0; _subs.forEach((f) => { try { f(on); } catch { /* ignore */ } }); }
+export function onApiActivity(fn) { try { fn(_inflight > 0); } catch { /* ignore */ } _subs.add(fn); return () => _subs.delete(fn); }
+
 // Slow-network resilient request:
 //  - aborts after `timeout` so weak connections fail fast instead of hanging
 //  - caches successful GET responses, and on a network error/timeout falls back to the
@@ -19,6 +25,7 @@ async function req(path, { method = "GET", body, timeout = 15000 } = {}) {
   const isGet = method === "GET";
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeout);
+  _inflight++; _notify();
   try {
     const res = await fetch(await url(path), {
       method,
@@ -38,6 +45,7 @@ async function req(path, { method = "GET", body, timeout = 15000 } = {}) {
     throw e;
   } finally {
     clearTimeout(t);
+    _inflight = Math.max(0, _inflight - 1); _notify();
   }
 }
 
