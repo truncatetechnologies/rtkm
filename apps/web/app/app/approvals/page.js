@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useApi } from "@/lib/useApi";
 import { api } from "@/lib/clientApi";
-import { Card, Table, Td, Tr, Badge, Button, PageLoader } from "@/components/ui";
+import { Card, Table, Td, Tr, Badge, Button, PageLoader, SkeletonPage } from "@/components/ui";
 import { Box, Typography } from "@mui/material";
 import { Gauge } from "@/components/icons";
 
@@ -18,7 +18,7 @@ export default function Approvals() {
     finally { setBusy(""); }
   }
 
-  if (isLoading && !data) return <PageLoader label="Loading approvals…" />;
+  if (isLoading && !data) return <SkeletonPage cols={5} />;
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>

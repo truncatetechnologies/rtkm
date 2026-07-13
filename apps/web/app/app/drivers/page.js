@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useApp } from "@/lib/appContext";
 import { api } from "@/lib/clientApi";
 import { useApi } from "@/lib/useApi";
-import { Card, Button, Modal, Field, Input, Table, Td, Tr, Badge, rupee, IconButton, useConfirm, PageLoader } from "@/components/ui";
+import { Card, Button, Modal, Field, Input, Table, Td, Tr, Badge, rupee, IconButton, useConfirm, PageLoader, SkeletonPage } from "@/components/ui";
 import { DatePicker } from "@/components/DatePicker";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -37,7 +37,7 @@ export default function Drivers() {
   }
 
   if (!activeId) return <Card>Select or create a transport first.</Card>;
-  if (isLoading && !driversData) return <PageLoader label="Loading drivers…" />;
+  if (isLoading && !driversData) return <SkeletonPage cols={5} />;
 
   return (
     <Box>

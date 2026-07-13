@@ -5,6 +5,7 @@ import { useApi } from "@/lib/useApi";
 import { Card, Table, Td, Tr, Badge, rupee, IconButton, useConfirm, PageLoader, SkeletonPage } from "@/components/ui";
 import Box from "@mui/material/Box";
 import { Trash2, Fuel } from "@/components/icons";
+import SyncBar from "@/components/SyncBar";
 
 export default function Loads() {
   const { activeId, activeCompany = "all" } = useApp();
@@ -25,6 +26,9 @@ export default function Loads() {
 
   return (
     <Box>
+      <Box sx={{ mb: 2, display: "flex", justifyContent: "flex-end" }}>
+        <SyncBar page="loads" onDone={mutateLoads} />
+      </Box>
       <Table head={["Date", "Invoice", "Shipment", "Company", "From → To", "Driver", "Load (L)", "Oil (L)", "Shortage", ""]}>
         {loads.map((l) => (
           <Tr key={l.id}>

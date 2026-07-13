@@ -27,11 +27,13 @@ export async function GET(request) {
   const payload = state ? verifyMobileToken(state) : null;
   const isMobile = !!(payload && payload.mobile);
 
-  // Finish for either surface: mobile → HTML page, web → redirect to Settings with a status flag.
+  // Finish for either surface: mobile → HTML page, web → back where we came from (Settings by
+  // default, the dashboard when onboarding sent us) with a status flag.
+  const next = /^\/app(\/|$)/.test(payload?.next || "") ? payload.next : "/app/settings";
   const done = (ok, reason) =>
     isMobile
       ? mobilePage(ok, ok ? "You're all set — close this window and return to the RTKM app." : "Please try again from the app.")
-      : NextResponse.redirect(`${base}/app/settings?gmail=${ok ? "connected" : reason}`);
+      : NextResponse.redirect(`${base}${next}?gmail=${ok ? "connected" : reason}`);
 
   if (searchParams.get("error") || !code || !payload || payload.purpose !== "gmail" || !payload.transportId) return done(false, "error");
 

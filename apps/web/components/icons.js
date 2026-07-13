@@ -59,6 +59,7 @@ import Build from "@mui/icons-material/Build";
 import Close from "@mui/icons-material/Close";
 import Autorenew from "@mui/icons-material/Autorenew";
 import DownloadMui from "@mui/icons-material/Download";
+import MenuMui from "@mui/icons-material/Menu";
 
 // Wrap a MUI icon so `size` (px) maps to fontSize and `color` (any CSS color) maps to sx.
 function ic(MuiIcon) {
@@ -121,6 +122,7 @@ export const TrendingDown = ic(TrendingDownMui);
 export const Truck = ic(LocalShipping);
 export const RefreshCw = ic(Autorenew);
 export const Download = ic(DownloadMui);
+export const Menu = ic(MenuMui);
 export const Undo2 = ic(Undo);
 export const Upload = ic(FileUpload);
 export const UploadCloud = ic(CloudUpload);

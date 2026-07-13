@@ -7,10 +7,11 @@ import Typography from "@mui/material/Typography";
 import {
   LayoutDashboard, Building2, Truck, Users, UserCog, Package, AlertTriangle,
   Wrench, Wallet, LogOut, Calculator, ChevronDown, ChevronRight, Settings, Scale, BarChart3, History,
-  ChevronsLeft, ChevronsRight, Sparkles, Gauge, Toll, Warehouse, AlertBell,
+  ChevronsLeft, ChevronsRight, Sparkles, Gauge, Toll, Warehouse, AlertBell, Menu, X,
 } from "@/components/icons";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
+import Drawer from "@mui/material/Drawer";
 import LinearProgress from "@mui/material/LinearProgress";
 import { AppContext } from "@/lib/appContext";
 import { api, getActiveTransport, setActiveTransport, getActiveCompany, setActiveCompany, companyLabel } from "@/lib/clientApi";
@@ -56,6 +57,7 @@ export default function AppLayout({ children }) {
   const [activeCompany, setActiveCompanyState] = useState("all");
   const [collapsed, setCollapsed] = useState(false);
   const [pendingHref, setPendingHref] = useState(null);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false); // left drawer on phones/tablets
 
   useEffect(() => { try { setCollapsed(localStorage.getItem("rtkm_sidebar") === "1"); } catch {} }, []);
   const toggleSidebar = () => setCollapsed((c) => { const n = !c; try { localStorage.setItem("rtkm_sidebar", n ? "1" : "0"); } catch {} return n; });
@@ -123,36 +125,49 @@ export default function AppLayout({ children }) {
       <GlobalLoadingBar />
       <Box sx={{ display: "flex", minHeight: "100vh" }}>
         {!isDriver && (
-          <Box component="aside" className="glass"
-            sx={{ position: "sticky", top: 0, display: { xs: "none", md: "flex" }, height: "100vh", width: collapsed ? 76 : 256, flexDirection: "column", borderRight: "1px solid", borderColor: "rgba(255,255,255,0.6)", p: 1.5, transition: "width .2s ease" }}>
-            <Box sx={{ display: "flex", flexDirection: collapsed ? "column" : "row", alignItems: "center", justifyContent: collapsed ? "center" : "space-between", gap: 1 }}>
-              <Brand collapsed={collapsed} />
-              <IconButton onClick={toggleSidebar} size="small" title={collapsed ? "Expand menu" : "Collapse menu"}
-                sx={{ color: "text.secondary", "&:hover": { bgcolor: "rgba(255,255,255,0.7)" } }}>
-                {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
-              </IconButton>
+          <>
+            {/* Desktop (md+): persistent left sidebar. */}
+            <Box component="aside" className="glass"
+              sx={{ position: "sticky", top: 0, display: { xs: "none", md: "flex" }, height: "100vh", width: collapsed ? 76 : 256, flexDirection: "column", borderRight: "1px solid", borderColor: "rgba(255,255,255,0.6)", p: 1.5, transition: "width .2s ease" }}>
+              <Box sx={{ display: "flex", flexDirection: collapsed ? "column" : "row", alignItems: "center", justifyContent: collapsed ? "center" : "space-between", gap: 1 }}>
+                <Brand collapsed={collapsed} />
+                <IconButton onClick={toggleSidebar} size="small" title={collapsed ? "Expand menu" : "Collapse menu"}
+                  sx={{ color: "text.secondary", "&:hover": { bgcolor: "rgba(255,255,255,0.7)" } }}>
+                  {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
+                </IconButton>
+              </Box>
+              <NavList opsNav={opsNav} setupNav={setupNav} currentHref={pendingHref || pathname} collapsed={collapsed} onNav={handleNav} />
             </Box>
-            <Box component="nav" sx={{ mt: 2.5, flex: 1, display: "flex", flexDirection: "column", gap: 0.5, overflowY: "auto" }}>
-              {opsNav.map((n) => <NavLink key={n.href} {...n} selected={(pendingHref || pathname) === n.href} collapsed={collapsed} onNav={handleNav} />)}
-              {setupNav.length > 0 && (
-                collapsed
-                  ? <>
-                      <Box sx={{ my: 0.5, mx: "auto", width: 24, borderTop: "1px solid", borderColor: "rgba(148,163,184,0.25)" }} />
-                      {setupNav.map((n) => <NavLink key={n.href} {...n} selected={(pendingHref || pathname) === n.href} collapsed onNav={handleNav} />)}
-                    </>
-                  : <SetupGroup items={setupNav} currentHref={pendingHref || pathname} onNav={handleNav} />
-              )}
-            </Box>
-            <NavLink href="/" label="Calculator" Icon={Calculator} selected={false} collapsed={collapsed} onNav={handleNav} />
-          </Box>
+
+            {/* Mobile (<md): the same menu as a left slide-in drawer, opened by the ☰ in the header. */}
+            <Drawer anchor="left" open={mobileNavOpen} onClose={() => setMobileNavOpen(false)}
+              ModalProps={{ keepMounted: true }}
+              sx={{ display: { xs: "block", md: "none" } }}
+              PaperProps={{ sx: { width: 272, p: 1.5, display: "flex", flexDirection: "column", bgcolor: "rgba(255,255,255,0.97)", backdropFilter: "blur(14px)" } }}>
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+                <Brand collapsed={false} />
+                <IconButton onClick={() => setMobileNavOpen(false)} size="small" aria-label="Close menu" sx={{ color: "text.secondary" }}>
+                  <X size={18} />
+                </IconButton>
+              </Box>
+              <NavList opsNav={opsNav} setupNav={setupNav} currentHref={pendingHref || pathname}
+                onNav={(href) => { handleNav(href); setMobileNavOpen(false); }} />
+            </Drawer>
+          </>
         )}
 
         <Box sx={{ display: "flex", minWidth: 0, flex: 1, flexDirection: "column" }}>
           <Box component="header" className="glass"
             sx={{ position: "sticky", top: 0, zIndex: 20, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, borderBottom: "1px solid", borderColor: "rgba(255,255,255,0.6)", px: 2, py: 1.5, "@media (min-width:900px)": { px: 3 } }}>
             <Box sx={{ display: "flex", minWidth: 0, alignItems: "center", gap: 0.75, fontSize: 14 }}>
-              <Typography component="span" sx={{ color: "text.disabled" }}>{isDriver ? "Driver" : "Dashboard"}</Typography>
-              <Box component={ChevronRight} size={16} sx={{ flexShrink: 0, color: "rgba(148,163,184,0.7)" }} />
+              {!isDriver && (
+                <IconButton onClick={() => setMobileNavOpen(true)} aria-label="Open menu"
+                  sx={{ display: { xs: "inline-flex", md: "none" }, mr: 0.25, borderRadius: 2.5, p: 1, color: "primary.main", bgcolor: "rgba(79,70,229,0.08)", "&:hover": { bgcolor: "rgba(79,70,229,0.16)" } }}>
+                  <Menu size={20} />
+                </IconButton>
+              )}
+              <Typography component="span" sx={{ display: { xs: "none", sm: "inline" }, color: "text.disabled" }}>{isDriver ? "Driver" : "Dashboard"}</Typography>
+              <Box component={ChevronRight} size={16} sx={{ display: { xs: "none", sm: "block" }, flexShrink: 0, color: "rgba(148,163,184,0.7)" }} />
               <Typography component="span" sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: { xs: 16, md: 18 }, fontWeight: 700, color: "text.primary" }}>{pageTitle}</Typography>
             </Box>
             <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 1, md: 1.5 } }}>
@@ -200,24 +215,6 @@ export default function AppLayout({ children }) {
             </Box>
           </Box>
 
-          {!isDriver && (
-            <Box className="glass"
-              sx={{ display: { xs: "flex", md: "none" }, alignItems: "center", gap: 1, overflow: "auto", borderBottom: "1px solid", borderColor: "rgba(255,255,255,0.6)", px: 1.5, py: 1 }}>
-              {flatNav.map((n) => {
-                const active = (pendingHref || pathname) === n.href;
-                return (
-                  <Box component={Link} key={n.href} href={n.href} onClick={() => handleNav(n.href)}
-                    sx={{
-                      display: "flex", alignItems: "center", gap: 0.75, whiteSpace: "nowrap", borderRadius: 2, px: 1.5, py: 0.75, fontSize: 14, fontWeight: 500,
-                      ...(active ? { bgcolor: "primary.main", color: "#fff" } : { bgcolor: "rgba(255,255,255,0.7)", color: "text.secondary" }),
-                    }}>
-                    <n.Icon size={16} /> {n.label}
-                  </Box>
-                );
-              })}
-            </Box>
-          )}
-
           <Box sx={{ position: "relative", height: 3 }}>
             {pendingHref && <LinearProgress sx={{ position: "absolute", inset: 0, height: 3 }} />}
           </Box>
@@ -226,6 +223,26 @@ export default function AppLayout({ children }) {
       </Box>
       <UploadFab />
     </AppContext.Provider>
+  );
+}
+
+// The menu itself. Shared by the desktop sidebar and the mobile left drawer so they can't drift apart.
+function NavList({ opsNav, setupNav, currentHref, collapsed = false, onNav }) {
+  return (
+    <>
+      <Box component="nav" sx={{ mt: 2.5, flex: 1, display: "flex", flexDirection: "column", gap: 0.5, overflowY: "auto" }}>
+        {opsNav.map((n) => <NavLink key={n.href} {...n} selected={currentHref === n.href} collapsed={collapsed} onNav={onNav} />)}
+        {setupNav.length > 0 && (
+          collapsed
+            ? <>
+                <Box sx={{ my: 0.5, mx: "auto", width: 24, borderTop: "1px solid", borderColor: "rgba(148,163,184,0.25)" }} />
+                {setupNav.map((n) => <NavLink key={n.href} {...n} selected={currentHref === n.href} collapsed onNav={onNav} />)}
+              </>
+            : <SetupGroup items={setupNav} currentHref={currentHref} onNav={onNav} />
+        )}
+      </Box>
+      <NavLink href="/" label="Calculator" Icon={Calculator} selected={false} collapsed={collapsed} onNav={onNav} />
+    </>
   );
 }
 

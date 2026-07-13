@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useApp } from "@/lib/appContext";
 import { api } from "@/lib/clientApi";
 import { useApi } from "@/lib/useApi";
-import { Card, Button, Modal, Field, Input, Select, Badge, IconButton, useConfirm, PageLoader } from "@/components/ui";
+import { Card, Button, Modal, Field, Input, Select, Badge, IconButton, useConfirm, PageLoader, SkeletonPage } from "@/components/ui";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { Plus, Pencil, Trash2, RefreshCw, Download } from "@/components/icons";
@@ -106,7 +106,7 @@ export default function Trucks() {
   const driverName = (id) => drivers.find((d) => d.id === id)?.name || "—";
 
   if (!activeId) return <Card>Select or create a transport first.</Card>;
-  if (loadingTrucks && !trucksData) return <PageLoader label="Loading trucks…" />;
+  if (loadingTrucks && !trucksData) return <SkeletonPage cols={5} />;
 
   return (
     <Box>

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useApp } from "@/lib/appContext";
 import { api } from "@/lib/clientApi";
 import { useApi } from "@/lib/useApi";
-import { Card, Button, Modal, Field, Input, Table, Td, Tr, Badge, IconButton, useConfirm, PageLoader } from "@/components/ui";
+import { Card, Button, Modal, Field, Input, Table, Td, Tr, Badge, IconButton, useConfirm, PageLoader, SkeletonPage } from "@/components/ui";
 import { Box } from "@mui/material";
 import { Plus, Trash2 } from "@/components/icons";
 
@@ -28,7 +28,7 @@ export default function Managers() {
   }
 
   if (!activeId) return <Card>Select or create a transport first.</Card>;
-  if (isLoading && !managersData) return <PageLoader label="Loading managers…" />;
+  if (isLoading && !managersData) return <SkeletonPage cols={4} />;
 
   return (
     <Box>

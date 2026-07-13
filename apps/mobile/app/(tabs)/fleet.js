@@ -5,7 +5,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as WebBrowser from "expo-web-browser";
 import { getUser, setToken, setUser, getServerUrl, getToken } from "../../lib/config";
 import {
-  login, ownerRegister, getTransports, updateTransport, wipeTransport, getMembers, createMember, updateMember, getTrucks, createTruck, updateTruck, syncTruckVahan,
+  login, ownerRegister, getTransports, createTransport, updateTransport, wipeTransport, syncRun, getMembers, createMember, updateMember, getTrucks, createTruck, updateTruck, syncTruckVahan,
   getLoads, getShortages, syncDeliveries, getSpend, getMyLoads, getMyPayslips,
   uploadInvoice, uploadShortage, confirmInvoice, confirmShortage, setMealAllowance,
   getMaintenance, createMaintenance, getSalaries, generateSalary, paySalary, discardSalary,
@@ -23,6 +23,103 @@ import { C, R, S, shadow } from "../../lib/theme";
 import { Card, AppButton, Chip, Tile, GradientHeader, EmptyState, ScreenBg, Dropdown, SkeletonList, MaterialCommunityIcons, LinearGradient } from "../../components/ui";
 
 const rupee = (n) => "₹" + Math.round(n || 0).toLocaleString("en-IN");
+
+// "I logged in and my data isn't here" — pull straight from Gmail for a short period.
+// Deliberately just three obvious choices, shown on every data screen.
+const SYNC_PERIODS = [["today", "Today"], ["week", "This week"], ["month", "This month"]];
+
+function SyncBar({ transportId, page, onDone, label = "Sync" }) {
+  const [period, setPeriod] = useState("week");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  async function run() {
+    if (!transportId) return;
+    setBusy(true); setMsg("");
+    try {
+      const r = await syncRun(transportId, page, period);
+      setMsg(r?.message || "Synced.");
+      await onDone?.();
+    } catch (e) { setMsg(`Sync failed: ${String(e.message || e)}`); }
+    finally { setBusy(false); }
+  }
+  return (
+    <View style={[{ backgroundColor: C.card, borderRadius: R.lg, borderWidth: 1, borderColor: "rgba(15,23,42,0.06)", padding: 12, marginBottom: 10 }, shadow]}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
+        {SYNC_PERIODS.map(([k, lbl]) => {
+          const active = period === k;
+          return (
+            <TouchableOpacity key={k} onPress={() => setPeriod(k)} activeOpacity={0.8}
+              style={{ flex: 1, alignItems: "center", paddingVertical: 7, borderRadius: 9, backgroundColor: active ? "#4F46E5" : "rgba(79,70,229,0.08)" }}>
+              <Text style={{ fontSize: 12.5, fontWeight: "700", color: active ? "#fff" : C.sub }}>{lbl}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+      <TouchableOpacity onPress={run} disabled={busy} activeOpacity={0.85}
+        style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: "rgba(79,70,229,0.10)", borderRadius: 10, paddingVertical: 10, opacity: busy ? 0.6 : 1 }}>
+        {busy ? <ActivityIndicator size="small" color="#4F46E5" /> : <MaterialCommunityIcons name="cloud-sync" size={18} color="#4F46E5" />}
+        <Text style={{ color: "#4F46E5", fontWeight: "700", fontSize: 14 }}>{busy ? "Syncing…" : label}</Text>
+      </TouchableOpacity>
+      {msg ? <Text style={{ marginTop: 8, fontSize: 12.5, color: C.sub }}>{msg}</Text> : null}
+    </View>
+  );
+}
+
+// Step 1 of onboarding — a brand-new owner has no transport, and Gmail can't be connected without one.
+function OnboardTransportCard({ onCreated }) {
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function create() {
+    if (name.trim().length < 2) { Alert.alert("Transport name", "Enter a name for your transport."); return; }
+    setBusy(true);
+    try { const t = await createTransport({ name: name.trim() }); await onCreated?.(t); }
+    catch (e) { Alert.alert("Error", String(e.message || e)); }
+    finally { setBusy(false); }
+  }
+  return (
+    <Card>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 }}>
+        <MaterialCommunityIcons name="star-four-points" size={16} color="#7c3aed" />
+        <Text style={{ fontSize: 11, fontWeight: "800", letterSpacing: 0.5, color: "#7c3aed" }}>STEP 1 OF 2</Text>
+      </View>
+      <Text style={{ fontSize: 18, fontWeight: "800", color: C.ink }}>Welcome to RTKM — name your transport</Text>
+      <Text style={{ fontSize: 13, color: C.sub, marginTop: 4, marginBottom: 12 }}>
+        Everything — trucks, drivers, freight, salaries — lives under a transport. You can add more later.
+      </Text>
+      <LInput icon="domain" placeholder="e.g. Sadguru Kripa Transport" value={name} onChangeText={setName} />
+      <AppButton title={busy ? "Creating…" : "Create transport"} icon="domain-plus" onPress={create} loading={busy} />
+    </Card>
+  );
+}
+
+// Nags until Gmail is connected — without it nothing imports automatically.
+function GmailStrip({ transportId, onConnected }) {
+  const [connecting, setConnecting] = useState(false);
+  async function connect() {
+    setConnecting(true);
+    try {
+      const url = await gmailConnectUrl(transportId);
+      if (!url || !/^https?:\/\//.test(String(url))) throw new Error("Couldn't get the Google sign-in link.");
+      await WebBrowser.openBrowserAsync(String(url));
+      await onConnected?.(); // re-check after the browser closes
+    } catch (e) { Alert.alert("Couldn't connect Gmail", String(e.message || e)); }
+    finally { setConnecting(false); }
+  }
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "rgba(245,158,11,0.12)", borderWidth: 1, borderColor: "rgba(245,158,11,0.35)", borderRadius: R.lg, padding: 12, marginBottom: 10 }}>
+      <MaterialCommunityIcons name="email-alert-outline" size={22} color="#b45309" />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={{ fontSize: 14, fontWeight: "800", color: "#92400e" }}>Gmail not connected</Text>
+        <Text style={{ fontSize: 12, color: "#92400e" }}>Freight statements, invoices and alerts won't import automatically.</Text>
+      </View>
+      <TouchableOpacity onPress={connect} disabled={connecting} activeOpacity={0.85}
+        style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#4F46E5", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, opacity: connecting ? 0.6 : 1 }}>
+        {connecting ? <ActivityIndicator size="small" color="#fff" /> : <MaterialCommunityIcons name="gmail" size={15} color="#fff" />}
+        <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>Connect</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
 
 // Government documents pulled from the VAHAN record, in display order.
 const TRUCK_DOCS = [
@@ -722,6 +819,7 @@ function OwnerFleet({ user, onLogout }) {
   const [modal, setModal] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [vahanBusy, setVahanBusy] = useState(null); // truck id being synced from VAHAN
+  const [gmailOk, setGmailOk] = useState(null); // null = unknown (don't nag until we know)
 
   useEffect(() => {
     if (user.role === "owner") getTransports().then((t) => { setTransports(t); if (!tid && t[0]) setTid(t[0].id); }).catch(() => {});
@@ -799,6 +897,7 @@ function OwnerFleet({ user, onLogout }) {
     if (notifs.unread > 0) { try { await markNotificationsRead(tid); setNotifs((n) => ({ ...n, unread: 0 })); } catch {} }
   }
   useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => { refreshGmail(); }, [tid]); // drives the "connect Gmail" strip (step 2 of onboarding)
 
   const t = spend?.totals || { total: 0, fuel: 0, trips: 0, trucks: 0, drivers: 0, shortageL: 0, maintenance: 0, oilLiters: 0 };
   const activeTransport = transports.find((x) => x.id === tid) || null;
@@ -828,6 +927,15 @@ function OwnerFleet({ user, onLogout }) {
       { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: async () => { try { await deleteExtraOil(e.id); refresh(); } catch (err) { Alert.alert("Error", String(err.message || err)); } } },
     ]);
+  }
+  async function refreshGmail() {
+    if (!tid) return;
+    try { const g = await gmailStatus(tid); setGmailOk(!!g?.connected); }
+    catch { setGmailOk(null); } // couldn't tell — stay quiet rather than nag wrongly
+  }
+  async function onTransportCreated(t) {
+    try { setTransports(await getTransports()); } catch {}
+    setTid(t.id); // step 2 (the Gmail strip) shows once the transport is active
   }
   async function syncVahan(truck) {
     if (!truck.registrationNo) { Alert.alert("Registration number", "Add a registration number for this truck first."); return; }
@@ -878,7 +986,9 @@ function OwnerFleet({ user, onLogout }) {
           </View>
         )}
         {!tid ? (
-          <EmptyState icon="domain" text="No transport yet. Create one on the web dashboard." />
+          user.role === "owner"
+            ? <OnboardTransportCard onCreated={onTransportCreated} />
+            : <EmptyState icon="domain" text="No transport assigned yet. Ask the owner to add you." />
         ) : firstLoad ? (
           <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 80, gap: 12 }}>
             <ActivityIndicator size="large" color={C.green} />
@@ -898,6 +1008,8 @@ function OwnerFleet({ user, onLogout }) {
 
             {tab === "home" && (
               <>
+                {gmailOk === false && <GmailStrip transportId={tid} onConnected={refreshGmail} />}
+                <SyncBar transportId={tid} page="overview" onDone={refresh} label="Sync everything" />
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingTop: S.md }}>
                   {SPEND_RANGES.map((p) => (
                     <Chip key={p.key} label={p.label} active={range === p.key} onPress={() => setRange(p.key)} />
@@ -981,6 +1093,7 @@ function OwnerFleet({ user, onLogout }) {
 
             {tab === "loads" && (
               <View style={{ marginTop: S.md }}>
+                <SyncBar transportId={tid} page="loads" onDone={refresh} label="Sync from Gmail" />
                 {loads.length === 0 ? <EmptyState icon="truck-outline" text="No loads" /> :
                   loads.map((l) => <ListRow key={l.id} icon="receipt" title={l.invoiceNumber || "—"}
                     meta={`${driverName(l.driverId)} · ${l.loadQtyL}L${l.shipmentNo ? ` · ship ${l.shipmentNo}` : ""}${l.shipmentLead && l.shipmentOilLiters ? ` · oil ${l.shipmentOilLiters}L` : ""}`}
@@ -990,9 +1103,8 @@ function OwnerFleet({ user, onLogout }) {
 
             {tab === "shortages" && (
               <View style={{ marginTop: S.md }}>
-                <Text style={s.rowMeta}>Nayara emails a delivery confirmation within days of each trip. Sync captures those shortages early so salary is cut on time; the monthly freight PDF is the backup.</Text>
-                {user.role === "owner" && <AppButton title={delivBusy ? "Syncing…" : "Sync from email"} icon="email-sync-outline" onPress={syncDeliv} loading={delivBusy} style={{ marginTop: 10 }} />}
-                <View style={{ height: S.md }} />
+                <Text style={[s.rowMeta, { marginBottom: 10 }]}>Nayara emails a delivery confirmation within days of each trip. Sync captures those shortages early so salary is cut on time; the monthly freight PDF is the backup.</Text>
+                {user.role === "owner" && <SyncBar transportId={tid} page="shortages" onDone={refresh} label="Sync from email" />}
                 {shortages.length === 0 ? <EmptyState icon="check-circle-outline" text="No shortages" /> :
                   shortages.map((x) => {
                     const st = x.status === "open" ? "Pending" : x.status === "deducted" ? `Deducted · ${monthShort(x.deductedPeriod)}${x.deductedPaid ? " (paid)" : ""}` : "Waived";
@@ -1052,8 +1164,8 @@ function OwnerFleet({ user, onLogout }) {
 
             {tab === "ledger" && (
               <View style={{ marginTop: S.md }}>
-                <Text style={s.rowMeta}>Deliveries are grouped by Shipment No. When a shipment drops at several pumps, diesel is given for the farthest pump only (longest RTKM ÷ tanker avg).</Text>
-                <View style={{ height: S.md }} />
+                <Text style={[s.rowMeta, { marginBottom: 10 }]}>Deliveries are grouped by Shipment No. When a shipment drops at several pumps, diesel is given for the farthest pump only (longest RTKM ÷ tanker avg).</Text>
+                <SyncBar transportId={tid} page="ledger" onDone={refresh} label="Sync from Gmail" />
                 <ReconCard summary={ledger.summary} />
                 <View style={[s.tiles]}>
                   <Tile label="Freight charged" value={rupee(ledger.summary?.totalFreight)} icon="cash-multiple" tone="indigo" />
@@ -1130,8 +1242,8 @@ function OwnerFleet({ user, onLogout }) {
 
             {tab === "uploads" && (
               <View style={{ marginTop: S.md }}>
-                <Text style={s.rowMeta}>Every PDF you upload is listed here. Tap Undo to revert exactly what that upload changed.</Text>
-                <View style={{ height: S.md }} />
+                <Text style={[s.rowMeta, { marginBottom: 10 }]}>Every PDF you upload is listed here. Tap Undo to revert exactly what that upload changed.</Text>
+                <SyncBar transportId={tid} page="uploads" onDone={refresh} label="Sync from Gmail" />
                 {uploads.length === 0 ? <EmptyState icon="history" text="No uploads yet." /> :
                   uploads.map((u) => {
                     const k = UPLOAD_KIND[u.kind] || { label: u.kind || "Upload", icon: "file-document" };
@@ -1157,7 +1269,8 @@ function OwnerFleet({ user, onLogout }) {
 
             {tab === "fastag" && (
               <View style={{ marginTop: S.md }}>
-                <Text style={s.rowMeta}>Upload BlackBuck BOSS wallet + each tanker statement. Tolls are the truth; the wallet is checked for extra/non-toll charges.</Text>
+                <Text style={[s.rowMeta, { marginBottom: 10 }]}>Upload BlackBuck BOSS wallet + each tanker statement. Tolls are the truth; the wallet is checked for extra/non-toll charges.</Text>
+                <SyncBar transportId={tid} page="fastag" onDone={refresh} label="Sync from Gmail" />
                 <View style={{ height: S.md }} />
                 <AppButton title={fastagBusy ? "Reading…" : "Upload FASTag PDFs"} icon="upload" onPress={pickFastag} loading={fastagBusy} />
                 {(fastag.months || []).length > 0 && (
@@ -1228,8 +1341,8 @@ function OwnerFleet({ user, onLogout }) {
 
             {tab === "gatein" && (
               <View style={{ marginTop: S.md }}>
-                <Text style={s.rowMeta}>Every time a tanker enters a depot, the oil company emails a "Gate In" notice. Sync pulls those from your connected Gmail.</Text>
-                <AppButton title={gateInBusy ? "Syncing…" : "Sync from Gmail"} icon="email-sync-outline" onPress={syncGate} loading={gateInBusy} style={{ marginTop: 10 }} />
+                <Text style={[s.rowMeta, { marginBottom: 10 }]}>Every time a tanker enters a depot, the oil company emails a "Gate In" notice. Sync pulls those from your connected Gmail.</Text>
+                <SyncBar transportId={tid} page="gatein" onDone={refresh} label="Sync from Gmail" />
                 <View style={{ flexDirection: "row", gap: 8, marginTop: S.md }}>
                   <Tile label="Gate-in events" value={gateIn.total || 0} icon="warehouse" tone="blue" />
                   <Tile label="Depots" value={(gateIn.byDepot || []).length} icon="warehouse" tone="green" />
@@ -1247,8 +1360,8 @@ function OwnerFleet({ user, onLogout }) {
 
             {tab === "alerts" && (
               <View style={{ marginTop: S.md }}>
-                <Text style={s.rowMeta}>Depot mails warn you before a tanker's document (permit / fitness / insurance) expires, or it gets blocked for loading. Sync pulls these from Gmail; you also get a phone push when one arrives.</Text>
-                <AppButton title={alertsBusy ? "Syncing…" : "Sync from Gmail"} icon="email-sync-outline" onPress={syncAlerts} loading={alertsBusy} style={{ marginTop: 10 }} />
+                <Text style={[s.rowMeta, { marginBottom: 10 }]}>Depot mails warn you before a tanker's document (permit / fitness / insurance) expires, or it gets blocked for loading. Sync pulls these from Gmail; you also get a phone push when one arrives.</Text>
+                <SyncBar transportId={tid} page="alerts" onDone={refresh} label="Sync from Gmail" />
                 <Text style={[s.section, { marginTop: S.lg }]}>Document expiries</Text>
                 {(alerts.rows || []).length === 0 ? <Text style={s.rowMeta}>No alerts yet — tap "Sync from Gmail".</Text> :
                   alerts.rows.map((r) => {

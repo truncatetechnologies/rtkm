@@ -9,9 +9,11 @@ import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import { useApp } from "@/lib/appContext";
 import { useApi } from "@/lib/useApi";
-import { Tile, RingStat, Card, Table, Td, Tr, Button, Badge, rupee, PageLoader } from "@/components/ui";
+import { Tile, RingStat, Card, Table, Td, Tr, Button, Badge, rupee, PageLoader, SkeletonPage } from "@/components/ui";
 import { Truck, Users, Package, Wallet, Fuel, Wrench, AlertTriangle, Scale, BarChart3, CalendarDays } from "@/components/icons";
 import { DatePicker } from "@/components/DatePicker";
+import GmailSetup from "@/components/GmailSetup";
+import SyncBar from "@/components/SyncBar";
 import { DriverHome } from "./_driver";
 
 // Charts (recharts) are heavy — load them lazily so the dashboard's first paint stays light on slow links.
@@ -104,7 +106,13 @@ export default function Overview() {
   const { me, activeId, activeCompany } = useApp();
   if (me.role === "admin") return <AdminRedirect />;
   if (me.role === "driver") return <DriverHome />;
-  return <OwnerOverview activeId={activeId} company={activeCompany} />;
+  return (
+    <>
+      {/* Onboarding (create transport → connect Gmail), then a nagging strip until Gmail is on. */}
+      <GmailSetup />
+      <OwnerOverview activeId={activeId} company={activeCompany} />
+    </>
+  );
 }
 
 function AdminRedirect() {
@@ -122,14 +130,15 @@ function OwnerOverview({ activeId, company = "all" }) {
   // cache persists across reloads. `null` key skips fetching until inputs are ready.
   const skip = !activeId || (range === "custom" && !custom.from && !custom.to);
   const key = skip ? null : `/api/reports/spend?${new URLSearchParams({ transportId: activeId, company, ...presetParams(range, custom) }).toString()}`;
-  const { data: s, isLoading } = useApi(key);
+  const { data: s, isLoading, mutate: mutateSpend } = useApi(key);
   // Settlement / collection cards follow the SAME period filter as the spend tiles (by delivery date).
   const ledKey = skip ? null : `/api/ledger?${new URLSearchParams({ transportId: activeId, company, ...presetParams(range, custom) }).toString()}`;
-  const { data: led } = useApi(ledKey);
+  const { data: led, mutate: mutateLed } = useApi(ledKey);
   const loading = isLoading;
+  const afterSync = async () => { await Promise.all([mutateSpend(), mutateLed()]); };
 
-  if (!activeId) return <Card>Create a transport first to see your dashboard. <Box component={Link} href="/app/transports" sx={{ color: "info.main", textDecoration: "underline" }}>Add transport →</Box></Card>;
-  if (isLoading && !s) return <PageLoader label="Loading dashboard…" />;
+  if (!activeId) return null; // GmailSetup shows the "name your transport" step above.
+  if (isLoading && !s) return <SkeletonPage tiles={4} cols={4} />;
   const t = s?.totals || { fuel: 0, maintenance: 0, salaries: 0, mealAllowance: 0, total: 0, trips: 0, trucks: 0, drivers: 0, shortageL: 0, oilLiters: 0, extraOilL: 0, pendingInvoice: 0 };
   const L = led?.summary || { totalFreight: 0, totalReceived: 0, pendingFreight: 0, settled: 0, pending: 0, loads: 0, pendingInvoice: 0 };
 
@@ -140,6 +149,9 @@ function OwnerOverview({ activeId, company = "all" }) {
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+        <SyncBar page="overview" onDone={afterSync} label="Sync everything" />
+      </Box>
       <RangeFilter range={range} setRange={setRange} custom={custom} setCustom={setCustom} loading={loading} trucks={t.trucks} drivers={t.drivers} />
 
       {/* First eye — money you're chasing today */}

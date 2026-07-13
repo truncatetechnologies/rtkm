@@ -14,8 +14,11 @@ export async function GET(request) {
   const scope = await resolveScope(request, { roles: ["owner", "manager"], transportId: searchParams.get("transportId") });
   if (scope.error) return scope.error;
   const mobile = searchParams.get("platform") === "mobile";
+  // Where to land after consent (onboarding sends you back to the dashboard). Same-origin /app paths only.
+  const nextRaw = searchParams.get("next") || "";
+  const next = /^\/app(\/|$)/.test(nextRaw) ? nextRaw : "";
   const state = signMobileToken(
-    { sub: scope.identity.userId, ownerId: scope.ownerId, transportId: scope.transportId, purpose: "gmail", mobile },
+    { sub: scope.identity.userId, ownerId: scope.ownerId, transportId: scope.transportId, purpose: "gmail", mobile, next },
     600
   );
   const url = gmailAuthUrl(state);

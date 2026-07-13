@@ -6,8 +6,9 @@ import { useApi } from "@/lib/useApi";
 import { Card, Button, Table, Td, Tr, Badge, rupee, IconButton, useConfirm, PageLoader, SkeletonPage } from "@/components/ui";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
-import { FileWarning, Ban, Mail } from "@/components/icons";
+import { FileWarning, Ban } from "@/components/icons";
 import { ShortageUploadModal } from "@/components/UploadFlow";
+import SyncBar from "@/components/SyncBar";
 
 export default function Shortages() {
   const { activeId, me } = useApp();
@@ -17,21 +18,9 @@ export default function Shortages() {
   const drivers = driversData?.members || [];
   const [upload, setUpload] = useState(false);
   const [view, setView] = useState("all");
-  const [syncing, setSyncing] = useState(false);
-  const [syncMsg, setSyncMsg] = useState("");
   const isOwner = me.role === "owner";
   const { confirm, ConfirmModal } = useConfirm();
   const refresh = () => { mutateItems(); mutateDrivers(); };
-
-  async function syncFromEmail() {
-    setSyncing(true); setSyncMsg("");
-    try {
-      const r = await api("/api/deliveries/sync", { method: "POST", body: { transportId: activeId, days: 365 }, timeout: 300000, retries: 0 });
-      setSyncMsg(`Scanned ${r.scanned} email(s) — ${r.shortagesCreated} new shortage(s) recorded.`);
-      refresh();
-    } catch (e) { setSyncMsg(String(e.message || e)); }
-    finally { setSyncing(false); }
-  }
 
   async function waive(id) {
     if (!(await confirm({ title: "Waive shortage?", message: "No salary deduction will be applied for this shortage.", confirmLabel: "Waive" }))) return;
@@ -56,8 +45,7 @@ export default function Shortages() {
       </Box>
       {isOwner && (
         <Box sx={{ mb: 2, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1.5 }}>
-          <Button Icon={Mail} onClick={syncFromEmail} disabled={syncing}>{syncing ? "Syncing…" : "Sync from email"}</Button>
-          {syncMsg && <Typography sx={{ fontSize: 13.5, color: "primary.dark" }}>{syncMsg}</Typography>}
+          <SyncBar page="shortages" onDone={refresh} label="Sync from email" />
           <Typography sx={{ fontSize: 12, color: "text.disabled", ml: { sm: "auto" } }}>Reads Nayara delivery-confirmation emails (needs Gmail connected).</Typography>
         </Box>
       )}

@@ -2,9 +2,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useApp } from "@/lib/appContext";
 import { api } from "@/lib/clientApi";
-import { Card, Table, Td, Tr, Badge, Tile, Button, Modal, Field, Input, Select, IconButton, useConfirm, rupee, PageLoader } from "@/components/ui";
+import { Card, Table, Td, Tr, Badge, Tile, Button, Modal, Field, Input, Select, IconButton, useConfirm, rupee, PageLoader, SkeletonPage } from "@/components/ui";
 import { Box, Typography } from "@mui/material";
 import { Wallet, IndianRupee, TrendingDown, Clock, Fuel, Truck, Plus, Trash2, ChevronDown, ChevronRight, AlertTriangle, CheckCircle2, Toll } from "@/components/icons";
+import SyncBar from "@/components/SyncBar";
 
 const FILTERS = [["all", "All"], ["pending", "Pending"], ["settled", "Settled"]];
 const PERIODS = [["1m", "This month"], ["3m", "3 months"], ["6m", "6 months"], ["year", "This year"], ["all", "All time"]];
@@ -88,7 +89,7 @@ export default function Ledger() {
 
   if (!activeId) return <Card>Select or create a transport first.</Card>;
   // First load (server can be slow on cold start) — show a clear loader instead of an empty page.
-  if (loading && !data.summary) return <PageLoader label="Loading statement of freight…" />;
+  if (loading && !data.summary) return <SkeletonPage tiles={3} cols={6} />;
   const s = data.summary || {};
   const groups = groupByShipment(data.loads, extra);
   const totalExtra = extra.reduce((sum, e) => sum + (e.litres || 0), 0);
@@ -162,7 +163,8 @@ export default function Ledger() {
             {label}{k === "settled" && s.settled != null ? ` (${s.settled})` : k === "pending" && s.pending != null ? ` (${s.pending})` : ""}
           </Button>
         ))}
-        <Box sx={{ ml: { sm: "auto" }, display: "flex", alignItems: "center", gap: 1 }}>
+        <Box sx={{ ml: { sm: "auto" }, display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+          <SyncBar page="ledger" onDone={load} label="Sync from Gmail" />
           <Typography component="span" sx={{ fontSize: 13, color: "text.secondary" }}>Period</Typography>
           <Select value={period} onChange={(e) => setPeriod(e.target.value)} sx={{ width: "auto", minWidth: 130 }}>
             {PERIODS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}

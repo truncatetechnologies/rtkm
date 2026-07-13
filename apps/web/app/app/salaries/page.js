@@ -3,7 +3,7 @@ import { Fragment, useEffect, useState } from "react";
 import { useApp } from "@/lib/appContext";
 import { api } from "@/lib/clientApi";
 import { useApi } from "@/lib/useApi";
-import { Card, Button, Field, Select, Input, Table, Td, Tr, Badge, rupee, IconButton, useConfirm, PageLoader } from "@/components/ui";
+import { Card, Button, Field, Select, Input, Table, Td, Tr, Badge, rupee, IconButton, useConfirm, PageLoader, SkeletonPage } from "@/components/ui";
 import { MonthPicker, DatePicker } from "@/components/DatePicker";
 import { Box, Typography } from "@mui/material";
 import { Wallet, CheckCircle2, Trash2, Plus, CalendarDays, ChevronDown, ChevronRight } from "@/components/icons";
@@ -50,7 +50,7 @@ export default function Salaries() {
   const driverName = (id) => drivers.find((d) => d.id === id)?.name || "—";
 
   if (!activeId) return <Card>Select or create a transport first.</Card>;
-  if (loadingSlips && !slipsData) return <PageLoader label="Loading salaries…" />;
+  if (loadingSlips && !slipsData) return <SkeletonPage cols={6} />;
 
   return (
     <Box>

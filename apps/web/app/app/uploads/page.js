@@ -4,9 +4,10 @@ import { useSWRConfig } from "swr";
 import { useApp } from "@/lib/appContext";
 import { api } from "@/lib/clientApi";
 import { useApi } from "@/lib/useApi";
-import { Card, Table, Td, Tr, Badge, IconButton, useConfirm, PageLoader } from "@/components/ui";
+import { Card, Table, Td, Tr, Badge, IconButton, useConfirm, PageLoader, SkeletonPage } from "@/components/ui";
 import { Box, Typography } from "@mui/material";
 import { Undo2, FileText, FileSpreadsheet, Landmark } from "@/components/icons";
+import SyncBar from "@/components/SyncBar";
 
 const KIND = {
   invoice: { label: "Invoice", Icon: FileText, tone: "blue" },
@@ -23,7 +24,7 @@ export default function Uploads() {
   const { confirm, ConfirmModal } = useConfirm();
 
   if (!activeId) return <Card>Select or create a transport first.</Card>;
-  if (isLoading && !uploadsData) return <PageLoader label="Loading uploads…" />;
+  if (isLoading && !uploadsData) return <SkeletonPage cols={5} />;
 
   async function undo(u) {
     const ok = await confirm({
@@ -41,6 +42,9 @@ export default function Uploads() {
 
   return (
     <Box>
+      <Box sx={{ mb: 2, display: "flex", justifyContent: "flex-end" }}>
+        <SyncBar page="uploads" onDone={() => mutate(() => true)} label="Sync from Gmail" />
+      </Box>
       <Typography sx={{ mb: 2, fontSize: 14, color: "text.secondary" }}>Every PDF you upload is listed here. <b>Undo</b> reverts exactly what that upload changed — handy if a wrong document was uploaded.</Typography>
       {msg && <Typography sx={{ mb: 1.5, borderRadius: 3, bgcolor: "rgba(16,185,129,0.08)", px: 2, py: 1, fontSize: 14, color: "success.main" }}>{msg}</Typography>}
 

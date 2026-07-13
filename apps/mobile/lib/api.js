@@ -88,6 +88,11 @@ export async function whoAmI() { return req("/api/auth/owner/me"); }
 
 // ---- Owner/manager fleet ----
 export async function getTransports() { return (await req("/api/transports")).transports; }
+export async function createTransport(body) { return (await req("/api/transports", { method: "POST", body })).transport; }
+// Manual "pull anything I'm missing" for a screen. period: today | week | month.
+export async function syncRun(transportId, page, period) {
+  return await req("/api/sync/run", { method: "POST", body: { transportId, page, period }, timeout: 300000 });
+}
 export async function updateTransport(id, body) { return (await req(`/api/transports/${id}`, { method: "PUT", body })).transport; }
 // Owner "fresh start": wipe this transport's transactional data (optionally trucks + members too).
 export async function wipeTransport(id, includeFleet) { return req(`/api/transports/${id}/wipe`, { method: "POST", body: { includeFleet }, timeout: 120000 }); }

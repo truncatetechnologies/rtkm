@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useApp } from "@/lib/appContext";
 import { useApi } from "@/lib/useApi";
-import { Card, Table, Td, Tr, Badge, Tile, Button, rupee, PageLoader } from "@/components/ui";
+import { Card, Table, Td, Tr, Badge, Tile, Button, rupee, PageLoader, SkeletonPage } from "@/components/ui";
 import { Box, Typography } from "@mui/material";
 import { IndianRupee, Wallet, Clock, TrendingDown, AlertTriangle, Fuel, Truck } from "@/components/icons";
 
@@ -28,6 +28,7 @@ export default function Reports() {
 
 function Profitability({ activeId }) {
   const { data } = useApi(activeId ? `/api/reports/profitability?transportId=${activeId}` : null);
+  if (!data) return <SkeletonPage tiles={4} cols={10} />;
   const d = data || { rows: [], totals: {} };
   const t = d.totals || {};
   const monthName = (m) => { if (!m) return "—"; const [y, mo] = m.split("-"); return new Date(Date.UTC(+y, +mo - 1, 1)).toLocaleString("en-IN", { month: "short", year: "numeric", timeZone: "UTC" }); };
@@ -64,6 +65,7 @@ function Profitability({ activeId }) {
 function ExtraOilReport({ activeId }) {
   const [period, setPeriod] = useState("");
   const { data } = useApi(activeId ? `/api/reports/extra-oil?transportId=${activeId}${period ? `&period=${period}` : ""}` : null);
+  if (!data) return <SkeletonPage tiles={3} cols={4} />;
   const d = data || { byDriver: [], byTruck: [], totals: {}, months: [] };
   const t = d.totals || {};
 
@@ -120,7 +122,7 @@ function Settlement({ activeId }) {
 
   const s = data.summary || {};
 
-  if (loadingLedger && !ledgerData) return <PageLoader label="Loading reports…" />;
+  if (loadingLedger && !ledgerData) return <SkeletonPage tiles={5} cols={8} />;
 
   const rows = data.loads
     .map((l) => ({ ...l, cut: (l.nayaraShortageDeduction || 0) + (l.otherDeduction || 0), gap: (l.freightAmount || 0) - (l.netReceived || 0) }))
@@ -170,6 +172,7 @@ function Settlement({ activeId }) {
 function DriverShortage({ activeId }) {
   const [period, setPeriod] = useState("");
   const { data: shortageData } = useApi(activeId ? `/api/reports/driver-shortage?transportId=${activeId}${period ? `&period=${period}` : ""}` : null);
+  if (!shortageData) return <SkeletonPage tiles={3} cols={5} />;
   const data = shortageData || { rows: [], totals: {}, months: [] };
 
   const t = data.totals || {};

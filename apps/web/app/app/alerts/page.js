@@ -5,7 +5,8 @@ import { api } from "@/lib/clientApi";
 import { useApi } from "@/lib/useApi";
 import { Card, Table, Td, Tr, Badge, Tile, Button, Select, PageLoader, SkeletonPage } from "@/components/ui";
 import { Box, Typography } from "@mui/material";
-import { AlertBell, Mail, CheckCircle2, AlertTriangle } from "@/components/icons";
+import { AlertBell, AlertTriangle } from "@/components/icons";
+import SyncBar from "@/components/SyncBar";
 
 const COMPANY = { nayara: "Nayara", bpcl: "BPCL", hpcl: "HPCL", ioc: "IndianOil" };
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—");
@@ -22,22 +23,9 @@ function statusChip(d) {
 export default function AlertsPage() {
   const { activeId } = useApp();
   const { data, mutate, isLoading } = useApi(activeId ? `/api/vehicle-alerts?transportId=${activeId}` : null);
-  const [days, setDays] = useState("365");
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState("");
 
   if (!activeId) return <Card>Select or create a transport first.</Card>;
   if (isLoading && !data) return <SkeletonPage tiles={3} cols={5} />;
-
-  async function sync() {
-    setBusy(true); setMsg("");
-    try {
-      const r = await api("/api/vehicle-alerts/sync", { method: "POST", body: { transportId: activeId, days: Number(days) }, timeout: 300000, retries: 0 });
-      setMsg(`Synced — scanned ${r.scanned} email(s), ${r.created} new alert(s) added.`);
-      mutate();
-    } catch (e) { setMsg(String(e.message || e)); }
-    finally { setBusy(false); }
-  }
 
   const rows = data?.rows || [];
   const expiringSoon = rows.filter((r) => { const n = daysLeft(r.expiryDate); return n !== null && n >= 0 && n <= 15; }).length;
@@ -52,16 +40,9 @@ export default function AlertsPage() {
             <Typography component="h2" sx={{ fontSize: 18, fontWeight: 700, color: "text.primary" }}>Vehicle document alerts</Typography>
             <Typography sx={{ mt: 0.5, fontSize: 14, color: "text.secondary" }}>Nayara (and other depots) email you when a tanker's certificate — permit, fitness, insurance, PUC — is about to expire. If it lapses, the tanker is blocked for loading. This pulls those alerts from your Gmail so you renew in time. You also get a phone notification the moment such a mail arrives.</Typography>
             <Box sx={{ mt: 2, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1.5 }}>
-              <Select value={days} onChange={(e) => setDays(e.target.value)} sx={{ width: "auto", minWidth: 150 }}>
-                <option value="30">Last 30 days</option>
-                <option value="90">Last 90 days</option>
-                <option value="365">Last 1 year</option>
-                <option value="730">Last 2 years</option>
-              </Select>
-              <Button Icon={Mail} onClick={sync} disabled={busy}>{busy ? "Syncing…" : "Sync from Gmail"}</Button>
+              <SyncBar page="alerts" onDone={mutate} label="Sync from Gmail" />
             </Box>
-            {msg && <Typography sx={{ mt: 1.5, fontSize: 13.5, fontWeight: 500, color: "primary.dark", display: "flex", alignItems: "center", gap: 0.75 }}><CheckCircle2 size={16} /> {msg}</Typography>}
-            <Typography sx={{ mt: 1.5, fontSize: 12, color: "text.disabled" }}>Not connected to Gmail? Go to <b style={{ color: "#64748b" }}>Settings → Connect Gmail</b> first.</Typography>
+            <Typography sx={{ mt: 1.5, fontSize: 12, color: "text.disabled" }}>Need a bigger backfill? Use <b style={{ color: "#64748b" }}>Settings → Import all</b>. Not connected to Gmail? <b style={{ color: "#64748b" }}>Settings → Connect Gmail</b>.</Typography>
           </Box>
         </Box>
       </Card>

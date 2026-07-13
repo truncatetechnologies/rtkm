@@ -6,6 +6,7 @@ import { uploadPdf, api } from "@/lib/clientApi";
 import { Card, Table, Td, Tr, Badge, Tile, Button, Input, rupee, PageLoader, SkeletonPage } from "@/components/ui";
 import { Box, Typography } from "@mui/material";
 import { Toll, Wallet, TrendingDown, AlertTriangle, UploadCloud, CheckCircle2, Ban } from "@/components/icons";
+import SyncBar from "@/components/SyncBar";
 
 const monthName = (m) => { if (!m) return "All time"; const [y, mo] = m.split("-"); return new Date(Date.UTC(+y, +mo - 1, 1)).toLocaleString("en-IN", { month: "short", year: "numeric", timeZone: "UTC" }); };
 
@@ -40,6 +41,9 @@ export default function Fastag() {
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
+      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+        <SyncBar page="fastag" onDone={mutate} label="Sync from Gmail" />
+      </Box>
       <Card sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 2 }}>
         <Box sx={{ display: "flex", width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 2.5, color: "#fff", backgroundImage: "linear-gradient(135deg,#7c3aed,#4f46e5)" }}><Toll size={22} /></Box>
         <Box sx={{ flex: 1, minWidth: 200 }}>
